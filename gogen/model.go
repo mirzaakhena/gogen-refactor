@@ -114,7 +114,14 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 func getInternalType(typeSpec *ast.TypeSpec, myDefaultValue string) string {
 	switch theType := typeSpec.Type.(type) {
 	case *ast.StructType:
-		myDefaultValue = fmt.Sprintf("%s{}", myDefaultValue)
+		theFields := ""
+		for _, field := range theType.Fields.List {
+			for _, name := range field.Names {
+				theFields += fmt.Sprintf("%s: %s, ", name, GetDefaultValue(field.Type))
+			}
+		}
+
+		myDefaultValue = fmt.Sprintf("%s{ %s }", myDefaultValue, theFields)
 	case *ast.InterfaceType:
 		myDefaultValue = "nil"
 	case *ast.Ident:
@@ -212,14 +219,14 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 
 					gt := NewGogenType(gomodPath, field, importMap)
 
-					if field.Names == nil {
-						nameField := GetSel(field.Type)
-						gs.Fields = append(gs.Fields, NewGogenField(nameField, gt))
-
-					} else {
+					if field.Names != nil {
 						for _, name := range field.Names {
 							gs.Fields = append(gs.Fields, NewGogenField(name.String(), gt))
 						}
+					} else {
+						nameField := GetSel(field.Type)
+						gs.Fields = append(gs.Fields, NewGogenField(nameField, gt))
+
 					}
 
 				}
