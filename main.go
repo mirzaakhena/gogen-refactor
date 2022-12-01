@@ -2,13 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"gen/gogen"
 )
 
 func main() {
 
-	gs, err := gogen.NewGogenStruct(gogen.GetPackagePath(), "domain_authservice/usecase/runuserlogin", "InportRequest")
+	flag.Parse()
+
+	values := flag.Args()
+
+	// "domain_authservice/usecase/runuserlogin"
+	// "InportRequest"
+
+	gs, err := gogen.NewGogenStruct(gogen.GetPackagePath(), values[0], values[1])
 	if err != nil {
 		panic(err)
 	}

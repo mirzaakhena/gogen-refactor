@@ -18,10 +18,10 @@ type GogenImport struct {
 
 func NewGogenImport(importSpec *ast.ImportSpec) GogenImport {
 
-	importPath := importSpec.Path.Value
+	importPath := strings.Trim(importSpec.Path.Value, `"`)
 
 	name := ""
-	expr := strings.Trim(importPath[strings.LastIndex(importPath, "/")+1:], `"`)
+	expr := importPath[strings.LastIndex(importPath, "/")+1:]
 	if importSpec.Name != nil {
 		name = importSpec.Name.String()
 		expr = name
@@ -42,27 +42,45 @@ type GogenType struct {
 
 func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]GogenImport) GogenType {
 
+	// prepare the used import
 	usedMap := map[string]GogenImport{}
 
-	//var theType = astField.Type
-
+	// get type
 	myType := GetTypeAsString(astField.Type)
+
+	// get default value
 	myDefaultValue := GetDefaultValue(astField.Type)
 
 	switch astFieldType := astField.Type.(type) {
+
+	// it is has selector and must be from external package
+	// we want to capture the detail data type
 	case *ast.SelectorExpr:
 
+		// the package Expression
 		x := astFieldType.X.(*ast.Ident).String()
-		sel := astFieldType.Sel.String()
-		gi := importMap[x]
 
+		// the Selector
+		sel := astFieldType.Sel.String()
+
+		// find it from importMap
+		gi, exist := importMap[x]
+		if !exist {
+			panic(fmt.Sprintf("%v not found in importMap", x))
+		}
+
+		// record the import
 		usedMap[gi.Expression] = gi
 
-		path := strings.Trim(gi.Path, "\"")
-		if strings.HasPrefix(path, gomodPath) {
+		// only work for path that start with gomod
+		if strings.HasPrefix(gi.Path, gomodPath) {
 
+			// take the path part only
+			pathWithoutGomod := gi.Path[len(gomodPath)+1:]
+
+			// go to the file
 			fset := token.NewFileSet()
-			pkgs, err := parser.ParseDir(fset, path[len(gomodPath)+1:], nil, parser.ParseComments)
+			pkgs, err := parser.ParseDir(fset, pathWithoutGomod, nil, parser.ParseComments)
 			if err != nil {
 				panic(err) // TODO fix later
 			}
@@ -73,16 +91,19 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 
 					ast.Inspect(file, func(node ast.Node) bool {
 
+						// focus only to type
 						typeSpec, ok := node.(*ast.TypeSpec)
 						if !ok {
 							return true
 						}
 
+						// with specific name
 						if typeSpec.Name.String() != sel {
 							return true
 						}
 
-						myDefaultValue = getInternalType(typeSpec, myDefaultValue)
+						// completing the default value
+						myDefaultValue = getDetailRealType(fset, typeSpec, myDefaultValue)
 
 						return true
 					})
@@ -92,8 +113,11 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 			}
 
 		}
+
+	// it does not have selector
 	default:
 
+		// take the import path for detail data type
 		selectors := GetExprForImport(astFieldType)
 
 		for _, s := range selectors {
@@ -111,37 +135,14 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 	}
 }
 
-func getInternalType(typeSpec *ast.TypeSpec, myDefaultValue string) string {
-	switch theType := typeSpec.Type.(type) {
-	case *ast.StructType:
-		theFields := ""
-		for _, field := range theType.Fields.List {
-			for _, name := range field.Names {
-				theFields += fmt.Sprintf("%s: %s, ", name, GetDefaultValue(field.Type))
-			}
-		}
+func getDetailRealType(fset *token.FileSet, typeSpec *ast.TypeSpec, myDefaultValue string) string {
+	switch typeSpec.Type.(type) {
 
-		myDefaultValue = fmt.Sprintf("%s{ %s }", myDefaultValue, theFields)
-	case *ast.InterfaceType:
-		myDefaultValue = "nil"
+	case *ast.StructType:
+		myDefaultValue = fmt.Sprintf("%s{}", myDefaultValue)
+
 	case *ast.Ident:
 		myDefaultValue = fmt.Sprintf("%s(%s)", myDefaultValue, GetDefaultValue(typeSpec.Type))
-	case *ast.FuncType:
-		defRetVal := ""
-
-		if theType.Results.NumFields() > 0 {
-			for i, retList := range theType.Results.List {
-				v := GetDefaultValue(retList.Type)
-
-				if i < len(theType.Results.List)-1 {
-					defRetVal += v + ", "
-				} else {
-					defRetVal += v
-				}
-			}
-		}
-
-		myDefaultValue = fmt.Sprintf("%s{return %s}", GetTypeAsString(typeSpec.Type), defRetVal)
 	}
 	return myDefaultValue
 }
@@ -166,6 +167,7 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 		Name: GogenName(structName),
 	}
 
+	// read file
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
 	if err != nil {
@@ -182,6 +184,7 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 
 			ast.Inspect(file, func(node ast.Node) bool {
 
+				// read all import
 				genDecl, ok := node.(*ast.GenDecl)
 				if ok && genDecl.Tok == token.IMPORT {
 
@@ -199,15 +202,18 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 					return true
 				}
 
+				// focus to type
 				typeSpec, ok := node.(*ast.TypeSpec)
 				if !ok {
 					return true
 				}
 
+				// focus to specific name only
 				if typeSpec.Name.String() != structName {
 					return true
 				}
 
+				// focus to struct only
 				structType, ok := typeSpec.Type.(*ast.StructType)
 				if !ok {
 					return true
@@ -215,10 +221,13 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 
 				found = true
 
+				// iterate the field
 				for _, field := range structType.Fields.List {
 
+					// read the type
 					gt := NewGogenType(gomodPath, field, importMap)
 
+					// if names exist, iterate it
 					if field.Names != nil {
 						for _, name := range field.Names {
 							gs.Fields = append(gs.Fields, NewGogenField(name.String(), gt))
@@ -288,21 +297,21 @@ func GetExprForImport(expr ast.Expr) []string {
 		return GetExprForImport(fieldType.Value)
 
 	case *ast.FuncType:
-		str := make([]string, 0)
+		expressions := make([]string, 0)
 
 		if fieldType.Params.NumFields() > 0 {
 			for _, x := range fieldType.Params.List {
-				str = append(str, GetExprForImport(x.Type)...)
+				expressions = append(expressions, GetExprForImport(x.Type)...)
 			}
 		}
 
 		if fieldType.Results.NumFields() > 0 {
 			for _, x := range fieldType.Results.List {
-				str = append(str, GetExprForImport(x.Type)...)
+				expressions = append(expressions, GetExprForImport(x.Type)...)
 			}
 		}
 
-		return str
+		return expressions
 
 	}
 

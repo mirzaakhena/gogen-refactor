@@ -8,8 +8,6 @@ import (
 
 func GetDefaultValue(expr ast.Expr) string {
 
-	//defaultValue := "nil"
-
 	switch fieldType := expr.(type) {
 
 	case *ast.SelectorExpr:
@@ -21,7 +19,15 @@ func GetDefaultValue(expr ast.Expr) string {
 		}
 
 	case *ast.StructType:
-		return fmt.Sprintf("%v{}", GetTypeAsString(fieldType))
+		//theFields := ""
+		//for _, field := range fieldType.Fields.List {
+		//	for _, name := range field.Names {
+		//		theFields += fmt.Sprintf("%s: %s, ", name, GetDefaultValue(field.Type))
+		//	}
+		//}
+		//return fmt.Sprintf("%v{ %s }", GetTypeAsString(fieldType), theFields)
+
+		return fmt.Sprintf("%v{ }", GetTypeAsString(fieldType))
 
 	case *ast.Ident:
 		if fieldType.Obj != nil {
@@ -50,8 +56,6 @@ func GetDefaultValue(expr ast.Expr) string {
 				return "false"
 
 			} else {
-				fmt.Printf("xx>>>>>%s \n", fieldType.String())
-
 				return fieldType.String()
 			}
 
