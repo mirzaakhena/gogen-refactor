@@ -16,6 +16,45 @@ type GogenImport struct {
 	Expression string `json:"expression"`
 }
 
+type GogenMethod struct {
+	Name    GogenName
+	Params  []GogenField
+	Results []GogenField
+}
+
+func NewGogenMethod() GogenMethod {
+
+	return GogenMethod{}
+}
+
+type GogenUsecase struct {
+	UsecaseName    string
+	InportRequest  GogenStruct
+	InportResponse GogenStruct
+	Outport        GogenInterface
+}
+
+type GogenType struct {
+	Type         string                 `json:"type"`
+	DefaultValue string                 `json:"defaultValue"`
+	Imports      map[string]GogenImport `json:"imports,omitempty"`
+}
+
+type GogenField struct {
+	Name     GogenName `json:"name"`
+	DataType GogenType `json:"dataType"`
+}
+
+type GogenStruct struct {
+	Name   GogenName    `json:"name"`
+	Fields []GogenField `json:"fields"`
+}
+
+type GogenInterface struct {
+	Name    GogenName
+	Methods []GogenMethod
+}
+
 func NewGogenImport(importSpec *ast.ImportSpec) GogenImport {
 
 	importPath := strings.Trim(importSpec.Path.Value, `"`)
@@ -32,12 +71,6 @@ func NewGogenImport(importSpec *ast.ImportSpec) GogenImport {
 		Path:       importPath,
 		Expression: expr,
 	}
-}
-
-type GogenType struct {
-	Type         string                 `json:"type"`
-	DefaultValue string                 `json:"defaultValue"`
-	Imports      map[string]GogenImport `json:"imports,omitempty"`
 }
 
 func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]GogenImport) GogenType {
@@ -118,7 +151,7 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 	default:
 
 		// take the import path for detail data type
-		selectors := GetExprForImport(astFieldType)
+		selectors := getExprForImport(astFieldType)
 
 		for _, s := range selectors {
 			importFromMap, exist := importMap[s]
@@ -135,6 +168,10 @@ func NewGogenType(gomodPath string, astField *ast.Field, importMap map[string]Go
 	}
 }
 
+func NewGogenField(name string, gType GogenType) GogenField {
+	return GogenField{Name: GogenName(name), DataType: gType}
+}
+
 func getDetailRealType(fset *token.FileSet, typeSpec *ast.TypeSpec, myDefaultValue string) string {
 	switch typeSpec.Type.(type) {
 
@@ -147,18 +184,65 @@ func getDetailRealType(fset *token.FileSet, typeSpec *ast.TypeSpec, myDefaultVal
 	return myDefaultValue
 }
 
-type GogenField struct {
-	Name     GogenName `json:"name"`
-	DataType GogenType `json:"dataType"`
+func getSel(expr ast.Expr) string {
+	switch fieldType := expr.(type) {
+	case *ast.SelectorExpr:
+		return fieldType.Sel.String()
+	case *ast.StarExpr:
+		return getSel(fieldType.X)
+	}
+	return ""
 }
 
-func NewGogenField(name string, gType GogenType) GogenField {
-	return GogenField{Name: GogenName(name), DataType: gType}
-}
+func getExprForImport(expr ast.Expr) []string {
 
-type GogenStruct struct {
-	Name   GogenName    `json:"name"`
-	Fields []GogenField `json:"fields"`
+	switch fieldType := expr.(type) {
+	case *ast.SelectorExpr:
+		return []string{fieldType.X.(*ast.Ident).String()}
+
+	case *ast.StarExpr:
+		return getExprForImport(fieldType.X)
+
+	case *ast.MapType:
+		str := make([]string, 0)
+		key := getExprForImport(fieldType.Key)
+		if key != nil {
+			str = append(str, key...)
+		}
+		value := getExprForImport(fieldType.Value)
+		if value != nil {
+			str = append(str, value...)
+		}
+
+		return str
+
+	case *ast.ArrayType:
+		return getExprForImport(fieldType.Elt)
+
+	case *ast.ChanType:
+		return getExprForImport(fieldType.Value)
+
+	case *ast.FuncType:
+		expressions := make([]string, 0)
+
+		if fieldType.Params.NumFields() > 0 {
+			for _, x := range fieldType.Params.List {
+				expressions = append(expressions, getExprForImport(x.Type)...)
+			}
+		}
+
+		if fieldType.Results.NumFields() > 0 {
+			for _, x := range fieldType.Results.List {
+				expressions = append(expressions, getExprForImport(x.Type)...)
+			}
+		}
+
+		return expressions
+
+	}
+
+	return nil
+
 }
 
 func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
@@ -233,7 +317,7 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 							gs.Fields = append(gs.Fields, NewGogenField(name.String(), gt))
 						}
 					} else {
-						nameField := GetSel(field.Type)
+						nameField := getSel(field.Type)
 						gs.Fields = append(gs.Fields, NewGogenField(nameField, gt))
 
 					}
@@ -258,81 +342,97 @@ func NewGogenStruct(gomodPath, path, structName string) (*GogenStruct, error) {
 	return &gs, nil
 }
 
-func GetSel(expr ast.Expr) string {
-	switch fieldType := expr.(type) {
-	case *ast.SelectorExpr:
-		return fieldType.Sel.String()
-	case *ast.StarExpr:
-		return GetSel(fieldType.X)
-	}
-	return ""
-}
+func NewGogenInterface(gomodPath, path, interfaceName string) (*GogenInterface, error) {
 
-func GetExprForImport(expr ast.Expr) []string {
-
-	switch fieldType := expr.(type) {
-	case *ast.SelectorExpr:
-		return []string{fieldType.X.(*ast.Ident).String()}
-
-	case *ast.StarExpr:
-		return GetExprForImport(fieldType.X)
-
-	case *ast.MapType:
-		str := make([]string, 0)
-		key := GetExprForImport(fieldType.Key)
-		if key != nil {
-			str = append(str, key...)
-		}
-		value := GetExprForImport(fieldType.Value)
-		if value != nil {
-			str = append(str, value...)
-		}
-
-		return str
-
-	case *ast.ArrayType:
-		return GetExprForImport(fieldType.Elt)
-
-	case *ast.ChanType:
-		return GetExprForImport(fieldType.Value)
-
-	case *ast.FuncType:
-		expressions := make([]string, 0)
-
-		if fieldType.Params.NumFields() > 0 {
-			for _, x := range fieldType.Params.List {
-				expressions = append(expressions, GetExprForImport(x.Type)...)
-			}
-		}
-
-		if fieldType.Results.NumFields() > 0 {
-			for _, x := range fieldType.Results.List {
-				expressions = append(expressions, GetExprForImport(x.Type)...)
-			}
-		}
-
-		return expressions
-
+	gi := GogenInterface{
+		Name:    GogenName(interfaceName),
+		Methods: make([]GogenMethod, 0),
 	}
 
-	return nil
+	// read file
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
 
-}
+	found := false
 
-type GogenMethod struct {
-	Name    GogenName
-	Params  []GogenField
-	Results []GogenField
-}
+	for _, pkg := range pkgs {
 
-type GogenInterface struct {
-	Name    GogenName
-	Methods []GogenMethod
-}
+		for _, file := range pkg.Files {
 
-type GogenUsecase struct {
-	UsecaseName    string
-	InportRequest  GogenStruct
-	InportResponse GogenStruct
-	Outport        GogenInterface
+			importMap := map[string]GogenImport{}
+
+			ast.Inspect(file, func(node ast.Node) bool {
+
+				// read all import
+				genDecl, ok := node.(*ast.GenDecl)
+				if ok && genDecl.Tok == token.IMPORT {
+
+					for _, spec := range genDecl.Specs {
+
+						importSpec, ok := spec.(*ast.ImportSpec)
+						if !ok {
+							continue
+						}
+
+						gi := NewGogenImport(importSpec)
+						importMap[gi.Expression] = gi
+					}
+
+					return true
+				}
+
+				// focus to type
+				typeSpec, ok := node.(*ast.TypeSpec)
+				if !ok {
+					return true
+				}
+
+				// focus to specific name only
+				if typeSpec.Name.String() != interfaceName {
+					return true
+				}
+
+				// focus to interface only
+				interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
+				if !ok {
+					return true
+				}
+
+				found = true
+
+				ast.Print(fset, interfaceType)
+
+				for _, method := range interfaceType.Methods.List {
+					if len(method.Names) == 0 {
+						panic("no method name found")
+					}
+
+					gm := GogenMethod{
+						Name:    GogenName(method.Names[0].String()),
+						Params:  nil,
+						Results: nil,
+					}
+
+					gi.Methods = append(gi.Methods, gm)
+				}
+
+				return true
+			})
+
+			if found {
+				break
+			}
+
+		}
+
+		if found {
+			break
+		}
+
+	}
+
+	return &gi, nil
 }

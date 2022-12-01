@@ -16,7 +16,8 @@ func main() {
 	// "domain_authservice/usecase/runuserlogin"
 	// "InportRequest"
 
-	gs, err := gogen.NewGogenStruct(gogen.GetPackagePath(), values[0], values[1])
+	//gs, err := gogen.NewGogenStruct(gogen.GetPackagePath(), values[0], values[1])
+	gs, err := gogen.NewGogenInterface(gogen.GetPackagePath(), values[0], values[1])
 	if err != nil {
 		panic(err)
 	}
