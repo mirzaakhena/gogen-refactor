@@ -6,17 +6,34 @@ import (
 	"strings"
 )
 
+func GetDeepDefaultValue(expr ast.Expr, myDefaultValue string) string {
+	switch expr.(type) {
+
+	case *ast.StructType:
+		return fmt.Sprintf("%s{}", myDefaultValue)
+
+	case *ast.Ident:
+		return fmt.Sprintf("%s(%s)", myDefaultValue, GetDefaultValue(expr))
+
+	}
+
+	return "nil"
+}
+
 func GetDefaultValue(expr ast.Expr) string {
 
 	switch fieldType := expr.(type) {
 
 	case *ast.SelectorExpr:
+
 		ident, ok := fieldType.X.(*ast.Ident)
+
+		// hardcoded fo context
 		if ok && ident.String() == "context" {
 			return "ctx"
-		} else {
-			return fmt.Sprintf("%s.%s", ident.String(), GetDefaultValue(fieldType.Sel))
 		}
+
+		return fmt.Sprintf("%s.%s", ident.String(), GetDefaultValue(fieldType.Sel))
 
 	case *ast.StructType:
 		//theFields := ""
@@ -27,7 +44,7 @@ func GetDefaultValue(expr ast.Expr) string {
 		//}
 		//return fmt.Sprintf("%v{ %s }", GetTypeAsString(fieldType), theFields)
 
-		return fmt.Sprintf("%v{ }", GetTypeAsString(fieldType))
+		return fmt.Sprintf("%v{}", GetTypeAsString(fieldType))
 
 	case *ast.Ident:
 		if fieldType.Obj != nil {
@@ -40,24 +57,37 @@ func GetDefaultValue(expr ast.Expr) string {
 			return GetDefaultValue(typeSpec.Type)
 
 		} else {
+
 			if fieldType.String() == "error" {
 				return "nil"
 
-			} else if strings.HasPrefix(fieldType.String(), "int") {
+			}
+
+			if strings.HasPrefix(fieldType.String(), "int") {
 				return "0"
 
-			} else if strings.HasPrefix(fieldType.String(), "float") {
+			}
+
+			if strings.HasPrefix(fieldType.String(), "float") {
 				return "0.0"
 
-			} else if fieldType.String() == "string" {
+			}
+
+			if fieldType.String() == "string" {
 				return `""`
 
-			} else if fieldType.String() == "bool" {
+			}
+
+			if fieldType.String() == "bool" {
 				return "false"
 
-			} else {
-				return fieldType.String()
 			}
+
+			if fieldType.String() == "any" {
+				return "nil"
+			}
+
+			return fieldType.String()
 
 		}
 

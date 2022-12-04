@@ -368,7 +368,7 @@ func injectUsecaseInportFields(domainName string, usecaseName string, usecases [
 							if structName == "inportrequest" {
 
 								for _, f := range structObj.Fields.List {
-									//fieldType := typeHandler{PrefixExpression: strings.ToLower(usecaseName)}.Start(f.Type)
+									//fieldType := typeHandler{PrefixExpression: strings.ToLower(usecaseName)}.Build(f.Type)
 									fieldType := typeHandler{}.Start(f.Type)
 									for _, name := range f.Names {
 										inportRequestFields = append(inportRequestFields, &StructField{
@@ -382,7 +382,7 @@ func injectUsecaseInportFields(domainName string, usecaseName string, usecases [
 							if structName == "inportresponse" {
 
 								for _, f := range structObj.Fields.List {
-									//fieldType := typeHandler{PrefixExpression: strings.ToLower(usecaseName)}.Start(f.Type)
+									//fieldType := typeHandler{PrefixExpression: strings.ToLower(usecaseName)}.Build(f.Type)
 									fieldType := typeHandler{}.Start(f.Type)
 									for _, name := range f.Names {
 										inportResponseFields = append(inportResponseFields, &StructField{

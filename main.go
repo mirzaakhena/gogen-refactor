@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"gen/gogen"
+	"gen/gogen2"
 )
 
 func main() {
@@ -16,11 +17,18 @@ func main() {
 	// "domain_authservice/usecase/runuserlogin"
 	// "InportRequest"
 
-	//gs, err := gogen.NewGogenStruct(gogen.GetPackagePath(), values[0], values[1])
-	gs, err := gogen.NewGogenInterface(gogen.GetPackagePath(), values[0], values[1])
+	// "/usr/local/go/src/time/time.go"
+	// "Time"
+
+	gs, err := gogen2.NewGogenStructBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
 	if err != nil {
 		panic(err)
 	}
+
+	//gs, err := gogen2.NewGogenInterfaceBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	_ = gs
 
