@@ -83,6 +83,8 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 					return false
 				}
 
+				ast.Print(fset, structType)
+
 				for _, field := range structType.Fields.List {
 
 					theType := GetTypeAsString(field.Type)
@@ -105,22 +107,21 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 					switch fieldType := field.Type.(type) {
 
 					case *ast.ArrayType:
-
-						gsb.handleArray(gt, fieldType, defaultValue)
+						HandleArray(gt, fieldType, defaultValue)
 
 					case *ast.Ident:
-						gsb.handleIdent(defaultValue, theType, gt)
+						HandleIdent(defaultValue, theType, gt, gsb.typeMap, gsb.unknownTypes)
 
 					case *ast.SelectorExpr:
 
-						err = gsb.handleSelector(fieldType, gt, defaultValue)
+						err = HandleSelector(gsb.goModPath, fieldType, gt, defaultValue, gsb.importMap, gsb.usedImport)
 						if err != nil {
 							return false
 						}
 
 					default:
 						// take the import path for detail data type
-						for _, s := range getExprForImport(fieldType) {
+						for _, s := range GetExprForImport(fieldType) {
 							importFromMap, exist := gsb.importMap[s]
 							if exist {
 								gsb.usedImport[s] = importFromMap
@@ -160,20 +161,20 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 	return gs, nil
 }
 
-func (gsb *GogenStructBuilder) handleSelector(fieldType *ast.SelectorExpr, gt *GogenType, defaultValue string) error {
+func HandleSelector(goModPath string, fieldType *ast.SelectorExpr, gt *GogenType, defaultValue string, importMap, usedImport map[string]GogenImport) error {
 
 	x, sel := GetXAndSelAsString(fieldType)
 
 	// find it from importMap
-	gi, exist := gsb.importMap[x]
+	gi, exist := importMap[x]
 	if !exist {
 		return fmt.Errorf("%v not found in importMap", x)
 	}
 
 	// record the import
-	gsb.usedImport[gi.Expression] = gi
+	usedImport[gi.Expression] = gi
 
-	path := gsb.getPathBasedOnImport(gi, x)
+	path := GetPathBasedOnImport(goModPath, gi, x)
 
 	// go to the file
 	fset := token.NewFileSet()
@@ -223,24 +224,24 @@ func (gsb *GogenStructBuilder) handleSelector(fieldType *ast.SelectorExpr, gt *G
 	return nil
 }
 
-func (gsb *GogenStructBuilder) getPathBasedOnImport(gi GogenImport, x string) string {
-	if strings.HasPrefix(gi.Path, gsb.goModPath) {
-		return gi.Path[len(gsb.goModPath)+1:]
+func GetPathBasedOnImport(goModPath string, gi GogenImport, x string) string {
+	if strings.HasPrefix(gi.Path, goModPath) {
+		return gi.Path[len(goModPath)+1:]
 	}
 	return fmt.Sprintf("%s/src/%s", build.Default.GOROOT, x)
 }
 
-func (gsb *GogenStructBuilder) handleArray(gt *GogenType, fieldType ast.Expr, defaultValue string) {
+func HandleArray(gt *GogenType, fieldType ast.Expr, defaultValue string) {
 	gt.TypeDefaultValue, gt.JSONDefaultValue = GetDeepDefaultValue(fieldType, defaultValue)
 }
 
-func (gsb *GogenStructBuilder) handleIdent(defaultValue string, theType string, gt *GogenType) {
+func HandleIdent(defaultValue string, theType string, gt *GogenType, typeMap map[string]*ast.TypeSpec, unknownTypes map[string]*GogenType) {
 
 	if defaultValue == theType {
 
-		typeSpecFromMap, exist := gsb.typeMap[theType]
+		typeSpecFromMap, exist := typeMap[theType]
 		if !exist {
-			gsb.unknownTypes[theType] = gt
+			unknownTypes[theType] = gt
 
 		} else {
 

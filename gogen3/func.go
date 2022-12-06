@@ -1,4 +1,4 @@
-package gogen2
+package gogen3
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ func GetDefaultValue(expr ast.Expr) string {
 		return fmt.Sprintf("%s.%s", ident.String(), GetDefaultValue(fieldType.Sel))
 
 	case *ast.ArrayType:
-		return fmt.Sprintf("%s{}", GetTypeAsString(fieldType))
+		return fmt.Sprintf("%s{}", getTypeAsString(fieldType))
 
 	case *ast.StructType:
 		//theFields := ""
@@ -36,9 +36,9 @@ func GetDefaultValue(expr ast.Expr) string {
 		//		theFields += fmt.Sprintf("%s: %s, ", name, GetDefaultValue(field.Type))
 		//	}
 		//}
-		//return fmt.Sprintf("%v{ %s }", GetTypeAsString(fieldType), theFields)
+		//return fmt.Sprintf("%v{ %s }", getTypeAsString(fieldType), theFields)
 
-		return fmt.Sprintf("%s{}", GetTypeAsString(fieldType))
+		return fmt.Sprintf("%s{}", getTypeAsString(fieldType))
 
 	case *ast.Ident:
 
@@ -97,23 +97,23 @@ func GetDefaultValue(expr ast.Expr) string {
 	return "nil"
 }
 
-func GetDeepDefaultValue(expr ast.Expr, myDefaultValue string) (string, string) {
-	switch expr.(type) {
-
-	case *ast.StructType:
-		return fmt.Sprintf("%s{}", myDefaultValue), "{}"
-
-	case *ast.ArrayType:
-		return myDefaultValue, "[]"
-
-	case *ast.Ident:
-		realDefaultValue := GetDefaultValue(expr)
-		return fmt.Sprintf("%s(%s)", myDefaultValue, realDefaultValue), realDefaultValue
-
-	}
-
-	return "nil", "null"
-}
+//func GetDeepDefaultValue(expr ast.Expr, myDefaultValue string) (string, string) {
+//	switch expr.(type) {
+//
+//	case *ast.StructType:
+//		return fmt.Sprintf("%s{}", myDefaultValue), "{}"
+//
+//	case *ast.ArrayType:
+//		return myDefaultValue, "[]"
+//
+//	case *ast.Ident:
+//		realDefaultValue := GetDefaultValue(expr)
+//		return fmt.Sprintf("%s(%s)", myDefaultValue, realDefaultValue), realDefaultValue
+//
+//	}
+//
+//	return "nil", "null"
+//}
 
 func GetSel(expr ast.Expr) string {
 

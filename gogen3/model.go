@@ -1,4 +1,4 @@
-package gogen2
+package gogen3
 
 import (
 	"go/ast"
@@ -6,22 +6,27 @@ import (
 )
 
 type GogenType struct {
-	Type             string `json:"type"`
-	JSONDefaultValue string `json:"jsonDefaultValue"`
-	TypeDefaultValue string `json:"typeDefaultValue"`
+	Type         string `json:"type"`
+	DefaultValue string `json:"defaultValue"`
 }
 
-func NewGogenType(theType, defaultValue string) *GogenType {
+func newGogenType(theType, defaultValue string) *GogenType {
 	return &GogenType{
-		Type:             theType,
-		TypeDefaultValue: defaultValue,
-		JSONDefaultValue: defaultValue,
+		Type:         theType,
+		DefaultValue: defaultValue,
 	}
 }
 
 type GogenField struct {
 	Name     string     `json:"name"`
 	DataType *GogenType `json:"dataType"`
+}
+
+func NewGogenField(fieldName, theType, defaultValue string) *GogenField {
+	return &GogenField{
+		Name:     fieldName,
+		DataType: newGogenType(theType, defaultValue),
+	}
 }
 
 type GogenImport struct {
@@ -33,23 +38,40 @@ type GogenImport struct {
 type GogenStruct struct {
 	Name    string        `json:"name"`
 	Imports []GogenImport `json:"imports"`
-	Fields  []GogenField  `json:"fields"`
+	Fields  []*GogenField `json:"fields"`
 }
 
 func NewGogenStruct(structName string) *GogenStruct {
 	return &GogenStruct{
 		Name:    structName,
 		Imports: make([]GogenImport, 0),
-		Fields:  make([]GogenField, 0),
+		Fields:  make([]*GogenField, 0),
 	}
 }
 
-func (g *GogenStruct) AddField(name string, dataType *GogenType) {
-	g.Fields = append(g.Fields, GogenField{
-		Name:     name,
-		DataType: dataType,
-	})
-}
+//func (g *GogenStruct) tryAssignDefaultValue(name string, dataType *GogenType) {
+//
+//	if dataType.UncompleteType() {
+//
+//		typeSpecFromMap, exist := gsb.typeMap[theType]
+//		if !exist {
+//			// register to unknown type to be find later
+//			gsb.unknownTypes[theType] = &gt
+//			return &gt, nil
+//		}
+//
+//		gt.DefaultValue, _, err = gsb.handleDefaultValue(defaultValue, typeSpecFromMap.Type)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//	}
+//
+//	g.Fields = append(g.Fields, GogenField{
+//		Name:     name,
+//		DataType: dataType,
+//	})
+//}
 
 func NewGogenImport(importSpec *ast.ImportSpec) GogenImport {
 
