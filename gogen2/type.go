@@ -9,7 +9,7 @@ import (
 
 type typeHandler struct{}
 
-func GetTypeAsString(expr ast.Expr) string {
+func getTypeAsString(expr ast.Expr) string {
 	return typeHandler{}.appendType(expr)
 }
 

@@ -7,7 +7,11 @@ import (
 	"go/parser"
 	"go/token"
 	"strings"
+	"sync"
 )
+
+type name struct {
+}
 
 type GogenStructBuilder struct {
 	goModPath    string
@@ -15,7 +19,8 @@ type GogenStructBuilder struct {
 	importMap    map[string]GogenImport
 	usedImport   map[string]GogenImport
 	typeMap      map[string]*ast.TypeSpec
-	unknownTypes map[string]*GogenType
+	unknownTypes map[string]*GogenField
+	selectorMap  map[string][]string
 	foundTarget  bool
 }
 
@@ -27,7 +32,8 @@ func NewGogenStructBuilder(goModPath, path string) *GogenStructBuilder {
 		importMap:    map[string]GogenImport{},
 		usedImport:   map[string]GogenImport{},
 		typeMap:      map[string]*ast.TypeSpec{},
-		unknownTypes: map[string]*GogenType{},
+		unknownTypes: map[string]*GogenField{},
+		selectorMap:  map[string][]string{},
 		foundTarget:  false,
 	}
 }
@@ -66,15 +72,26 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 				// get type name
 				typeSpecName := typeSpec.Name.String()
 
+				logDebug("next type : %v ------------------------------------------\n", typeSpecName)
+
 				if typeSpecName != structName {
+
+					logDebug("simpan kedalam typeMap type %v \n", typeSpecName)
 					gsb.typeMap[typeSpecName] = typeSpec
-					gsb.handleUncompleteDefaultValue()
+
+					if gsb.foundTarget {
+						gsb.handleUncompleteDefaultValue()
+					}
+
+					logDebug(".\n")
 					return true
 				}
 
 				// -------------- we found the struct target --------------
 
 				gsb.foundTarget = true
+
+				logDebug("target struct %v sudah ditemukan\n", structName)
 
 				// focus to struct only
 				structType, ok := typeSpec.Type.(*ast.StructType)
@@ -83,52 +100,41 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 					return false
 				}
 
-				ast.Print(fset, structType)
-
 				for _, field := range structType.Fields.List {
 
-					theType := GetTypeAsString(field.Type)
-					defaultValue := GetDefaultValue(field.Type)
+					dataTypeStr := getTypeAsString(field.Type)
+					logDebug("tipe data           : %v\n", dataTypeStr)
 
-					gt := NewGogenType(theType, defaultValue)
+					logDebug("first time handleDefaultValue\n")
+					defaultValue := handleDefaultValue(dataTypeStr, field.Type)
+					logDebug("default value       : %v\n", defaultValue)
 
-					// if names exist, iterate it
+					for _, s := range gsb.handleUsedImport(field.Type) {
+						importFromMap, exist := gsb.importMap[s]
+						if exist {
+							gsb.usedImport[s] = importFromMap
+						}
+					}
+
 					if field.Names != nil {
-						for _, name := range field.Names {
-							if IsExported(name.String()) {
-								gs.AddField(name.String(), gt)
+						// fieldNameIdent is exist
+						for _, fieldNameIdent := range field.Names {
+							if IsExported(fieldNameIdent.String()) {
+								logDebug("sudah punya nama    : %v\n", fieldNameIdent.String())
+								gf := NewGogenField(fieldNameIdent.String(), dataTypeStr, defaultValue)
+								gs.Fields = append(gs.Fields, gf)
+								gsb.checkDefaultValue(gf)
 							}
 						}
 					} else {
-						nameField := GetSel(field.Type)
-						gs.AddField(nameField, gt)
+						// name does not exist, use Selector as Name
+						fieldNameStr := GetSel(field.Type)
+						logDebug("karena tidak punya nama. maka diberi nama: %v\n", fieldNameStr)
+						gf := NewGogenField(fieldNameStr, dataTypeStr, defaultValue)
+						gs.Fields = append(gs.Fields, gf)
+						gsb.checkDefaultValue(gf)
 					}
-
-					switch fieldType := field.Type.(type) {
-
-					case *ast.ArrayType:
-						HandleArray(gt, fieldType, defaultValue)
-
-					case *ast.Ident:
-						HandleIdent(defaultValue, theType, gt, gsb.typeMap, gsb.unknownTypes)
-
-					case *ast.SelectorExpr:
-
-						err = HandleSelector(gsb.goModPath, fieldType, gt, defaultValue, gsb.importMap, gsb.usedImport)
-						if err != nil {
-							return false
-						}
-
-					default:
-						// take the import path for detail data type
-						for _, s := range GetExprForImport(fieldType) {
-							importFromMap, exist := gsb.importMap[s]
-							if exist {
-								gsb.usedImport[s] = importFromMap
-							}
-						}
-
-					}
+					logDebug("\n")
 
 				}
 
@@ -143,138 +149,211 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 
 	}
 
+	gsb.handleSelector(gs)
+
+	gsb.handleUncompleteDefaultValue()
+
 	if len(gsb.unknownTypes) > 0 {
 
 		arrUnknownTypes := make([]string, 0)
 
-		for s := range gsb.unknownTypes {
-			arrUnknownTypes = append(arrUnknownTypes, s)
+		for k, s := range gsb.unknownTypes {
+			arrUnknownTypes = append(arrUnknownTypes, fmt.Sprintf("%s %s,", k, s.DataType.Type))
 		}
 
-		return nil, fmt.Errorf("unknown struct : %v", arrUnknownTypes)
-	}
-
-	for _, v := range gsb.usedImport {
-		gs.Imports = append(gs.Imports, v)
+		return nil, fmt.Errorf("unknown type for field : %v", arrUnknownTypes)
 	}
 
 	return gs, nil
 }
 
-func HandleSelector(goModPath string, fieldType *ast.SelectorExpr, gt *GogenType, defaultValue string, importMap, usedImport map[string]GogenImport) error {
+func (gsb *GogenStructBuilder) handleSelector(gs *GogenStruct) {
 
-	x, sel := GetXAndSelAsString(fieldType)
+	wg := sync.WaitGroup{}
 
-	// find it from importMap
-	gi, exist := importMap[x]
-	if !exist {
-		return fmt.Errorf("%v not found in importMap", x)
-	}
+	for x, ui := range gsb.usedImport {
 
-	// record the import
-	usedImport[gi.Expression] = gi
+		gs.Imports = append(gs.Imports, ui)
 
-	path := GetPathBasedOnImport(goModPath, gi, x)
+		path := gsb.getPathBasedOnImport(ui, x)
 
-	// go to the file
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
-	if err != nil {
-		return err
-	}
+		fmt.Printf("call path %v\n", path)
 
-	found := false
+		wg.Add(1)
 
-	for _, pkg := range pkgs {
+		go func(x, path string) {
 
-		for _, file := range pkg.Files {
-
-			ast.Inspect(file, func(node ast.Node) bool {
-
-				// focus only to type
-				typeSpec, ok := node.(*ast.TypeSpec)
-				if !ok {
-					return true
-				}
-
-				// with specific name
-				if typeSpec.Name.String() != sel {
-					return true
-				}
-
-				// completing the default value
-				gt.TypeDefaultValue, gt.JSONDefaultValue = GetDeepDefaultValue(typeSpec.Type, defaultValue)
-
-				found = true
-
-				return true
-			})
-
-			if found {
-				break
+			// go to the file
+			fset := token.NewFileSet()
+			pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
+			if err != nil {
+				panic(err)
 			}
 
-		}
+			found := false
 
-		if found {
-			break
-		}
+			for _, pkg := range pkgs {
+
+				for _, file := range pkg.Files {
+
+					ast.Inspect(file, func(node ast.Node) bool {
+
+						// focus only to type
+						typeSpec, ok := node.(*ast.TypeSpec)
+						if !ok {
+							return true
+						}
+
+						for _, sel := range gsb.selectorMap[x] {
+
+							if fmt.Sprintf("%s", typeSpec.Name.String()) == sel {
+
+								logDebug("ketemu %v == %v\n", typeSpec.Name.String(), sel)
+
+								gsb.typeMap[fmt.Sprintf("%v.%v", x, typeSpec.Name.String())] = typeSpec
+							}
+						}
+
+						found = true
+
+						return true
+					})
+
+					if found {
+						break
+					}
+
+				}
+
+				if found {
+					break
+				}
+
+			}
+
+			wg.Done()
+
+		}(x, path)
 
 	}
-	return nil
+
+	wg.Wait()
 }
 
-func GetPathBasedOnImport(goModPath string, gi GogenImport, x string) string {
-	if strings.HasPrefix(gi.Path, goModPath) {
-		return gi.Path[len(goModPath)+1:]
-	}
-	return fmt.Sprintf("%s/src/%s", build.Default.GOROOT, x)
-}
+func (gsb *GogenStructBuilder) checkDefaultValue(gf *GogenField) {
 
-func HandleArray(gt *GogenType, fieldType ast.Expr, defaultValue string) {
-	gt.TypeDefaultValue, gt.JSONDefaultValue = GetDeepDefaultValue(fieldType, defaultValue)
-}
+	if gf.DataType.Type == gf.DataType.DefaultValue {
 
-func HandleIdent(defaultValue string, theType string, gt *GogenType, typeMap map[string]*ast.TypeSpec, unknownTypes map[string]*GogenType) {
+		logDebug("karena defaultValue utk field %v dengan type %v belum final, kita cek ke map\n", gf.Name, gf.DataType.Type)
 
-	if defaultValue == theType {
-
-		typeSpecFromMap, exist := typeMap[theType]
+		typeSpecFromMap, exist := gsb.typeMap[gf.DataType.DefaultValue]
 		if !exist {
-			unknownTypes[theType] = gt
+			logDebug("dataType %v belum ditemukan dalam map. pencarian default value utk var %v ditunda dan sudah didaftarkan dalam unknownTypes\n", gf.DataType.DefaultValue, gf.Name)
+			gsb.unknownTypes[gf.Name] = gf
 
-		} else {
-
-			gt.TypeDefaultValue, gt.JSONDefaultValue = GetDeepDefaultValue(typeSpecFromMap.Type, defaultValue)
+			logDebug("status unknownTypes : %+v\n", gsb.unknownTypes)
+			return
 		}
 
+		oldDefaultValue := gf.DataType.DefaultValue
+		newDefaultValue := handleDefaultValue(gf.DataType.DefaultValue, typeSpecFromMap.Type)
+		gf.SetNewDefaultValue(newDefaultValue)
+
+		logDebug("dataType %v ada di map. defaultValue %v sudah di replace dengan %v\n", gf.DataType.DefaultValue, oldDefaultValue, newDefaultValue)
+
+		return
 	}
+
+	logDebug("default value utk field %v dengan dataType %v sudah final, yaitu : %v\n", gf.Name, gf.DataType.DefaultValue, gf.DataType.DefaultValue)
+
 }
 
 func (gsb *GogenStructBuilder) handleUncompleteDefaultValue() {
 
-	if gsb.foundTarget {
-		for k, v := range gsb.unknownTypes {
-			ts, exist := gsb.typeMap[k]
-			if exist {
+	removeUnknownTypes := make([]string, 0)
 
-				v.TypeDefaultValue, v.JSONDefaultValue = GetDeepDefaultValue(ts.Type, v.TypeDefaultValue)
-				delete(gsb.unknownTypes, k)
-				break
-			}
+	for k, v := range gsb.unknownTypes {
+		ts, exist := gsb.typeMap[v.DataType.Type]
+		if !exist {
+			logDebug("dataType %v belum ditemukan dalam typeMap. mungkin di loop berikutnya\n", v.DataType.Type)
+			continue
 		}
+
+		logDebug("tipe data %v untuk field %v sudah ready di map\n", v.DataType.Type, k)
+		newDefaultValue := handleDefaultValue(v.DataType.Type, ts.Type)
+
+		logDebug("skg defaultValue yang tadinya %v, sudah direplace dengan %v\n", v.DataType.DefaultValue, newDefaultValue)
+		v.SetNewDefaultValue(newDefaultValue)
+
+		removeUnknownTypes = append(removeUnknownTypes, k)
+		logDebug("\n")
 	}
+
+	for _, ut := range removeUnknownTypes {
+		logDebug("menghapus %v dari unknown type map\n", ut)
+		delete(gsb.unknownTypes, ut)
+	}
+
+	logDebug("status unknownTypes : %+v\n", gsb.unknownTypes)
 }
 
-//func (gsb *GogenStructBuilder) handleImport(genDecl *ast.GenDecl) {
-//
-//	for _, spec := range genDecl.Specs {
-//		importSpec, ok := spec.(*ast.ImportSpec)
-//		if !ok {
-//			continue
-//		}
-//		gi := NewGogenImport(importSpec)
-//		gsb.importMap[gi.Expression] = gi
-//	}
-//
-//}
+func (gsb *GogenStructBuilder) getPathBasedOnImport(gi GogenImport, x string) string {
+	if strings.HasPrefix(gi.Path, gsb.goModPath) {
+		return gi.Path[len(gsb.goModPath)+1:]
+	}
+	return fmt.Sprintf("%s/src/%s", build.Default.GOROOT, x)
+}
+
+func (gsb *GogenStructBuilder) handleUsedImport(expr ast.Expr) []string {
+
+	switch fieldType := expr.(type) {
+	case *ast.SelectorExpr:
+		x := fieldType.X.(*ast.Ident).String()
+		sel := fieldType.Sel.String()
+
+		gsb.selectorMap[x] = append(gsb.selectorMap[x], sel)
+
+		return []string{fieldType.X.(*ast.Ident).String()}
+
+	case *ast.StarExpr:
+		return gsb.handleUsedImport(fieldType.X)
+
+	case *ast.MapType:
+		str := make([]string, 0)
+		key := gsb.handleUsedImport(fieldType.Key)
+		if key != nil {
+			str = append(str, key...)
+		}
+		value := gsb.handleUsedImport(fieldType.Value)
+		if value != nil {
+			str = append(str, value...)
+		}
+		return str
+
+	case *ast.ArrayType:
+		return gsb.handleUsedImport(fieldType.Elt)
+
+	case *ast.ChanType:
+		return gsb.handleUsedImport(fieldType.Value)
+
+	case *ast.FuncType:
+		str := make([]string, 0)
+
+		if fieldType.Params.NumFields() > 0 {
+			for _, x := range fieldType.Params.List {
+				str = append(str, gsb.handleUsedImport(x.Type)...)
+			}
+		}
+
+		if fieldType.Results.NumFields() > 0 {
+			for _, x := range fieldType.Results.List {
+				str = append(str, gsb.handleUsedImport(x.Type)...)
+			}
+		}
+
+		return str
+
+	}
+
+	return []string{}
+}

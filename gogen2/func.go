@@ -7,112 +7,8 @@ import (
 	"unicode"
 )
 
-func GetXAndSelAsString(fieldType *ast.SelectorExpr) (string, string) {
-	return fieldType.X.(*ast.Ident).String(), fieldType.Sel.String()
-}
-
-func GetDefaultValue(expr ast.Expr) string {
-
-	switch fieldType := expr.(type) {
-
-	case *ast.SelectorExpr:
-
-		ident, ok := fieldType.X.(*ast.Ident)
-
-		// hardcoded fo context
-		if ok && ident.String() == "context" {
-			return "ctx"
-		}
-
-		return fmt.Sprintf("%s.%s", ident.String(), GetDefaultValue(fieldType.Sel))
-
-	case *ast.ArrayType:
-		return fmt.Sprintf("%s{}", GetTypeAsString(fieldType))
-
-	case *ast.StructType:
-		//theFields := ""
-		//for _, field := range fieldType.Fields.List {
-		//	for _, name := range field.Names {
-		//		theFields += fmt.Sprintf("%s: %s, ", name, GetDefaultValue(field.Type))
-		//	}
-		//}
-		//return fmt.Sprintf("%v{ %s }", GetTypeAsString(fieldType), theFields)
-
-		return fmt.Sprintf("%s{}", GetTypeAsString(fieldType))
-
-	case *ast.Ident:
-
-		// struct found in the same file
-		if fieldType.Obj != nil {
-
-			typeSpec, ok := fieldType.Obj.Decl.(*ast.TypeSpec)
-			if !ok {
-				return ""
-			}
-
-			return GetDefaultValue(typeSpec.Type)
-
-		} else {
-
-			if fieldType.String() == "error" {
-				return "nil"
-
-			}
-
-			if strings.HasPrefix(fieldType.String(), "int") {
-				return "0"
-
-			}
-
-			if strings.HasPrefix(fieldType.String(), "uint") {
-				return "0"
-
-			}
-
-			if strings.HasPrefix(fieldType.String(), "float") {
-				return "0.0"
-
-			}
-
-			if fieldType.String() == "string" {
-				return `""`
-
-			}
-
-			if fieldType.String() == "bool" {
-				return "false"
-
-			}
-
-			if fieldType.String() == "any" {
-				return "nil"
-			}
-
-			return fieldType.String()
-
-		}
-
-	}
-
-	return "nil"
-}
-
-func GetDeepDefaultValue(expr ast.Expr, myDefaultValue string) (string, string) {
-	switch expr.(type) {
-
-	case *ast.StructType:
-		return fmt.Sprintf("%s{}", myDefaultValue), "{}"
-
-	case *ast.ArrayType:
-		return myDefaultValue, "[]"
-
-	case *ast.Ident:
-		realDefaultValue := GetDefaultValue(expr)
-		return fmt.Sprintf("%s(%s)", myDefaultValue, realDefaultValue), realDefaultValue
-
-	}
-
-	return "nil", "null"
+func logDebug(format string, a ...any) {
+	//fmt.Printf(format, a...)
 }
 
 func GetSel(expr ast.Expr) string {
@@ -132,100 +28,6 @@ func GetSel(expr ast.Expr) string {
 	return ""
 }
 
-func GetExprForImport(expr ast.Expr) []string {
-
-	switch fieldType := expr.(type) {
-	case *ast.SelectorExpr:
-		return []string{fieldType.X.(*ast.Ident).String()}
-
-	case *ast.StarExpr:
-		return GetExprForImport(fieldType.X)
-
-	case *ast.MapType:
-		str := make([]string, 0)
-		key := GetExprForImport(fieldType.Key)
-		if key != nil {
-			str = append(str, key...)
-		}
-		value := GetExprForImport(fieldType.Value)
-		if value != nil {
-			str = append(str, value...)
-		}
-
-		return str
-
-	case *ast.ArrayType:
-		return GetExprForImport(fieldType.Elt)
-
-	case *ast.ChanType:
-		return GetExprForImport(fieldType.Value)
-
-	case *ast.FuncType:
-		expressions := make([]string, 0)
-
-		if fieldType.Params.NumFields() > 0 {
-			for _, x := range fieldType.Params.List {
-				expressions = append(expressions, GetExprForImport(x.Type)...)
-			}
-		}
-
-		if fieldType.Results.NumFields() > 0 {
-			for _, x := range fieldType.Results.List {
-				expressions = append(expressions, GetExprForImport(x.Type)...)
-			}
-		}
-
-		return expressions
-
-	}
-
-	return nil
-
-}
-
-func GetResultName(expr ast.Expr) string {
-
-	switch exprType := expr.(type) {
-	case *ast.Ident:
-
-		if exprType.String() == "error" {
-			return "err"
-		}
-
-		if exprType.String() == "context.Context" {
-			return "ctx"
-		}
-
-		return exprType.String()
-
-	}
-
-	return "x"
-}
-
-func GetParamName(i int, expr ast.Expr) string {
-
-	if i >= 0 {
-		return fmt.Sprintf("arg%d", i)
-	}
-
-	switch exprType := expr.(type) {
-	case *ast.Ident:
-
-		if exprType.String() == "error" {
-			return "err"
-		}
-
-		if exprType.String() == "context.Context" {
-			return "ctx"
-		}
-
-		return exprType.String()
-	}
-
-	return "x"
-}
-
 func handleImport(genDecl *ast.GenDecl, importMap map[string]GogenImport) {
 
 	for _, spec := range genDecl.Specs {
@@ -236,6 +38,131 @@ func handleImport(genDecl *ast.GenDecl, importMap map[string]GogenImport) {
 		gi := NewGogenImport(importSpec)
 		importMap[gi.Expression] = gi
 	}
+
+}
+
+func handleDefaultValue(typeAsString string, expr ast.Expr) string {
+
+	logDebug("handleDefaultValue %v %v\n", typeAsString, expr)
+
+	switch exprType := expr.(type) {
+	case *ast.Ident:
+
+		logDebug("as ident            : %v\n", exprType.String())
+
+		// found type in the same file
+		if exprType.Obj != nil {
+			logDebug("dataType %s ada di file yg sama dengan struct target\n", exprType.String())
+
+			typeSpec, ok := exprType.Obj.Decl.(*ast.TypeSpec)
+			if !ok {
+				panic("cannot assert to TypeSpec")
+			}
+
+			logDebug("start recursive handleDefaultValue utk dataType %v\n", exprType.String())
+			defaultValue := handleDefaultValue(typeAsString, typeSpec.Type)
+			logDebug("end   recursive handleDefaultValue dari type %v hasil recursive adalah %v\n", exprType.String(), defaultValue)
+
+			return defaultValue
+		}
+
+		basicType := ""
+
+		for {
+
+			if strings.HasPrefix(exprType.String(), "int") || strings.HasPrefix(exprType.String(), "uint") {
+				logDebug("as int / uint\n")
+				basicType = "0"
+				break
+			}
+
+			if strings.HasPrefix(exprType.String(), "float") {
+				logDebug("as float\n")
+				basicType = "0.0"
+				break
+			}
+
+			if exprType.String() == "string" {
+				logDebug("as string\n")
+				basicType = `""`
+				break
+			}
+
+			if exprType.String() == "bool" {
+				logDebug("as bool\n")
+				basicType = `false`
+				break
+			}
+
+			if exprType.String() == "any" {
+				logDebug("as any\n")
+				basicType = `nil`
+				break
+			}
+
+			break
+		}
+
+		if basicType != "" {
+			if typeAsString != exprType.String() {
+				return fmt.Sprintf("%s(%s)", typeAsString, basicType)
+			}
+			return basicType
+		}
+
+		logDebug("tipe data dasar masih belum diketahui\n")
+
+		return exprType.String()
+
+	case *ast.StructType:
+		v := fmt.Sprintf("%v{}", typeAsString)
+		logDebug("as struct %v\n", v)
+		return v
+
+	case *ast.ArrayType:
+		v := fmt.Sprintf("%s{}", typeAsString)
+		logDebug("as array %v\n", v)
+		return v
+
+	case *ast.SelectorExpr:
+
+		ident, ok := exprType.X.(*ast.Ident)
+
+		// hardcoded fo context
+		if ok && ident.String() == "context" {
+			return "ctx"
+		}
+
+		v := fmt.Sprintf("%s.%s", ident.String(), exprType.Sel.String())
+
+		logDebug("as selector %v\n", v)
+
+		return v
+
+	case *ast.StarExpr:
+		//a := getTypeAsString(exprType.X)
+		//if a == "nil" {
+		//	return "nil"
+		//}
+		//v := fmt.Sprintf("&%s{}", a)
+		//return v
+		return "nil"
+
+	case *ast.InterfaceType:
+		return "nil"
+
+	case *ast.MapType:
+		return "nil"
+
+	case *ast.ChanType:
+		return "nil"
+
+	case *ast.FuncType:
+		return "nil"
+
+	}
+
+	return "unknown"
 
 }
 
