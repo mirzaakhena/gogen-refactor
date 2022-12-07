@@ -10,9 +10,6 @@ import (
 	"sync"
 )
 
-type name struct {
-}
-
 type GogenStructBuilder struct {
 	goModPath    string
 	path         string

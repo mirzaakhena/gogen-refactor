@@ -19,7 +19,7 @@ type GogenInterfaceBuilder struct {
 	unknownTypes map[string]*GogenField
 	foundTarget  bool
 	selectorMap  map[string][]string
-	interfaceMap map[string]*ast.InterfaceType
+	interfaceMap map[string]ast.Expr
 }
 
 func NewGogenInterfaceBuilder(goModPath, path string) *GogenInterfaceBuilder {
@@ -32,7 +32,7 @@ func NewGogenInterfaceBuilder(goModPath, path string) *GogenInterfaceBuilder {
 		typeMap:      map[string]*ast.TypeSpec{},
 		unknownTypes: map[string]*GogenField{},
 		selectorMap:  map[string][]string{},
-		interfaceMap: map[string]*ast.InterfaceType{},
+		interfaceMap: map[string]ast.Expr{},
 		foundTarget:  false,
 	}
 }
@@ -78,8 +78,14 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 					logDebug("simpan kedalam typeMap type %v \n", typeSpecName)
 					gsb.typeMap[typeSpecName] = typeSpec
 
+					// kita coba daftarkan semua interface yang kita temukan di package yang sama meskipun file yang berbeda
+					// mungkin nanti akan dipakai sebelum atau sesudah interface target ditemukan
+
 					interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
 					if ok {
+						// disini interfaceType yang dimasukkan sudah pasti sebuah interface
+						// tapi dari package yg sama namun file nya bisa sama atau berbeda
+						// baik sebelum maupun sesudah interface target ditemukan
 						gsb.interfaceMap[typeSpecName] = interfaceType
 					}
 
@@ -101,14 +107,7 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 
 				logDebug("target interface %v sudah ditemukan\n", interfaceName)
 
-				// focus to struct only
-				interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
-				if !ok {
-					err = fmt.Errorf("type %s is not interface", typeSpecName)
-					return false
-				}
-
-				err = gsb.handleMethodInterface(interfaceType, gc)
+				err = gsb.handleMethodInterface(typeSpecName, typeSpec.Type, gc)
 				if err != nil {
 					return false
 				}
@@ -124,7 +123,62 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 
 	}
 
-	//gsb.handleSelector(gc) // TODO ...
+	// disini kita akan coba ambil semua interfaceMap yang berisi Expr
+	// expr ini berasal dari selector saat nemu target
+
+	//for x, im := range gsb.interfaceMap {
+	//
+	//	ui, exist := gsb.usedImport[x]
+	//	if !exist {
+	//		return nil, fmt.Errorf("%s not found in importMap", x)
+	//	}
+	//
+	//	path := gsb.getPathBasedOnImport(ui, x)
+	//
+	//	fmt.Printf("call path %v\n", path)
+	//
+	//	// go to the file
+	//	fset := token.NewFileSet()
+	//	pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//
+	//	found := false
+	//
+	//	for _, pkg := range pkgs {
+	//
+	//		for _, file := range pkg.Files {
+	//
+	//			ast.Inspect(file, func(node ast.Node) bool {
+	//
+	//				// focus only to type
+	//				typeSpec, ok := node.(*ast.TypeSpec)
+	//				if !ok {
+	//					return true
+	//				}
+	//
+	//				// focus to interface only
+	//				_, ok = typeSpec.Type.(*ast.InterfaceType)
+	//				if !ok {
+	//					return true
+	//				}
+	//
+	//				interfaceName := typeSpec.Name.String()
+	//
+	//				//gsb.interfaceMap
+	//
+	//				return true
+	//			})
+	//
+	//		}
+	//	}
+	//
+	//}
+
+	// karena bisa jadi ada selector yg harus dihandle juga
+
+	gsb.handleSelector(gc) // TODO ...
 
 	gsb.handleUncompleteDefaultValue()
 
@@ -142,11 +196,21 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 	return gc, nil
 }
 
-func (gsb *GogenInterfaceBuilder) handleMethodInterface(interfaceType *ast.InterfaceType, gc *GogenInterface) error {
+func (gsb *GogenInterfaceBuilder) handleMethodInterface(typeSpecName string, expr ast.Expr, gc *GogenInterface) error {
+
+	// kita hanya fokus ke interface saja
+	interfaceType, ok := expr.(*ast.InterfaceType)
+	if !ok {
+		return fmt.Errorf("type %s is not interface", typeSpecName)
+	}
+
 	for _, method := range interfaceType.Methods.List {
 
 		switch methodType := method.Type.(type) {
 		case *ast.FuncType:
+
+			// jika masuk kesini berarti ini adalah inline function
+
 			if method.Names == nil && len(method.Names) > 0 {
 				return fmt.Errorf("method must have name")
 			}
@@ -159,19 +223,25 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(interfaceType *ast.Inter
 		case *ast.Ident:
 			fmt.Printf("ident %v\n", methodType.String())
 
+			// tidak mungkin ada import disini
+			// disini kita berharap ident yg ditemukan sudah pernah didaftarkan pada interfaceType
+			// dan ident disini sudah pasti adalah sebuah interface
 			im, exist := gsb.interfaceMap[methodType.String()]
 			if !exist {
-				// belum pernah ditemukan, mgk nanti akan ketemu
+
+				// jika masuk disini, maka ident belum pernah ditemukan, tapi mgk nanti akan ketemu
 				// mungkin ada di package yg sama dan file yg sama,
 				// mungkin ada di package yg sama namun file yg berbeda
-				gsb.interfaceMap[methodType.String()] = interfaceType
+				// dan tidak mungkin ada di package yang berbeda
+				// kita belum tahu methodType itu apa, masukin aj dulu nanti akan kita cek.
+				gsb.interfaceMap[methodType.String()] = methodType
 				continue
 			}
 
-			// ditemukan diawal difile yang sama
+			// jika masuk kesini, maka ident ini sudah pasti sebuah interface yang sudah pernah ditemukan diawal
 			// tapi belum pernah ditelusuri lebih lanjut
 			// kita akan selesaikan dengan dirinya sendiri sebagai interfaceType (recursive)
-			err := gsb.handleMethodInterface(im, gc)
+			err := gsb.handleMethodInterface(methodType.String(), im, gc)
 			if err != nil {
 				return err
 			}
@@ -180,6 +250,8 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(interfaceType *ast.Inter
 			m := fmt.Sprintf("%v.%v", methodType.X.(*ast.Ident).String(), methodType.Sel.String())
 			fmt.Printf("selector %v\n", m)
 
+			// kalau masuk sini sudah pasti belum pernah ditemukan dalam interfaceType
+			// sudah pasti ada import yang akan kita pakai disini
 			for _, s := range gsb.handleUsedImport(methodType) {
 				importFromMap, exist := gsb.importMap[s]
 				if exist {
@@ -187,9 +259,10 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(interfaceType *ast.Inter
 				}
 			}
 
-			// mungkin ada di package yg berbeda
-			// kita telusuri nanti saja
-			gsb.interfaceMap[m] = interfaceType
+			// sudah pasti ada di package yg berbeda yang akan kita telusuri nanti
+			// method Type disini sudah pasti selector,
+			// tapi kita belum tahu Selectornya type apa, masukin aj dulu nanti akan kita cek.
+			gsb.interfaceMap[m] = methodType
 
 		default:
 			return fmt.Errorf("unsupported type %v\n", methodType)
@@ -275,7 +348,7 @@ func (gsb *GogenInterfaceBuilder) handleFuncType(methodName string, gc *GogenInt
 	}
 }
 
-func (gsb *GogenInterfaceBuilder) handleSelector(gs *GogenStruct) {
+func (gsb *GogenInterfaceBuilder) handleSelector(gs *GogenInterface) {
 
 	wg := sync.WaitGroup{}
 
@@ -354,7 +427,7 @@ func (gsb *GogenInterfaceBuilder) checkDefaultValue(gf *GogenField) {
 
 		logDebug("karena defaultValue utk field %v dengan type %v belum final, kita cek ke map\n", gf.Name, gf.DataType.Type)
 
-		typeSpecFromMap, exist := gsb.typeMap[gf.DataType.DefaultValue]
+		typeSpecFromMap, exist := gsb.typeMap[gf.DataType.Type]
 		if !exist {
 			logDebug("dataType %v belum ditemukan dalam map. pencarian default value utk var %v ditunda dan sudah didaftarkan dalam unknownTypes\n", gf.DataType.DefaultValue, gf.Name)
 			gsb.unknownTypes[gf.Name] = gf
