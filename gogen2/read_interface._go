@@ -11,29 +11,31 @@ import (
 )
 
 type GogenInterfaceBuilder struct {
-	goModPath    string
-	path         string
-	importMap    map[string]GogenImport
-	usedImport   map[string]GogenImport
-	typeMap      map[string]*ast.TypeSpec
-	unknownTypes map[string]*GogenField
-	foundTarget  bool
-	selectorMap  map[string][]string
-	interfaceMap map[string]ast.Expr
+	goModPath         string
+	path              string
+	importMap         map[string]GogenImport
+	usedImport        map[string]GogenImport
+	typeMap           map[string]ast.Expr
+	unknownTypes      map[string]*GogenField
+	unknownInterfaces map[string]*GogenMethodField
+	selectorMap       map[string][]string
+	foundTarget       bool
+
+	//interfaceMap map[string]ast.Expr
 }
 
 func NewGogenInterfaceBuilder(goModPath, path string) *GogenInterfaceBuilder {
 
 	return &GogenInterfaceBuilder{
-		goModPath:    goModPath,
-		path:         path,
-		importMap:    map[string]GogenImport{},
-		usedImport:   map[string]GogenImport{},
-		typeMap:      map[string]*ast.TypeSpec{},
-		unknownTypes: map[string]*GogenField{},
-		selectorMap:  map[string][]string{},
-		interfaceMap: map[string]ast.Expr{},
-		foundTarget:  false,
+		goModPath:         goModPath,
+		path:              path,
+		importMap:         map[string]GogenImport{},
+		usedImport:        map[string]GogenImport{},
+		typeMap:           map[string]ast.Expr{},
+		unknownTypes:      map[string]*GogenField{},
+		unknownInterfaces: map[string]*GogenMethodField{},
+		selectorMap:       map[string][]string{},
+		foundTarget:       false,
 	}
 }
 
@@ -76,18 +78,18 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 				if typeSpecName != interfaceName {
 
 					logDebug("simpan kedalam typeMap type %v \n", typeSpecName)
-					gsb.typeMap[typeSpecName] = typeSpec
+					gsb.typeMap[typeSpecName] = typeSpec.Type
 
 					// kita coba daftarkan semua interface yang kita temukan di package yang sama meskipun file yang berbeda
 					// mungkin nanti akan dipakai sebelum atau sesudah interface target ditemukan
 
-					interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
-					if ok {
-						// disini interfaceType yang dimasukkan sudah pasti sebuah interface
-						// tapi dari package yg sama namun file nya bisa sama atau berbeda
-						// baik sebelum maupun sesudah interface target ditemukan
-						gsb.interfaceMap[typeSpecName] = interfaceType
-					}
+					//interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
+					//if ok {
+					//	// disini interfaceType yang dimasukkan sudah pasti sebuah interface
+					//	// tapi dari package yg sama namun file nya bisa sama atau berbeda
+					//	// baik sebelum maupun sesudah interface target ditemukan
+					//	gsb.interfaceMap[typeSpecName] = interfaceType
+					//}
 
 					if gsb.foundTarget {
 
@@ -126,7 +128,7 @@ func (gsb *GogenInterfaceBuilder) Build(interfaceName string) (*GogenInterface, 
 	// disini kita akan coba ambil semua interfaceMap yang berisi Expr
 	// expr ini berasal dari selector saat nemu target
 
-	//for x, im := range gsb.interfaceMap {
+	//for x, im := range gsb.unknownInterfaces {
 	//
 	//	ui, exist := gsb.usedImport[x]
 	//	if !exist {
@@ -224,17 +226,22 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(typeSpecName string, exp
 			fmt.Printf("ident %v\n", methodType.String())
 
 			// tidak mungkin ada import disini
-			// disini kita berharap ident yg ditemukan sudah pernah didaftarkan pada interfaceType
+			// disini kita berharap ident yg ditemukan sudah pernah didaftarkan pada typeMap
 			// dan ident disini sudah pasti adalah sebuah interface
-			im, exist := gsb.interfaceMap[methodType.String()]
+			im, exist := gsb.typeMap[methodType.String()]
 			if !exist {
+
+				mf := GogenMethodField{
+					ExtendInterfaces: methodType.String(),
+					Methods:          []*GogenMethod{},
+				}
 
 				// jika masuk disini, maka ident belum pernah ditemukan, tapi mgk nanti akan ketemu
 				// mungkin ada di package yg sama dan file yg sama,
 				// mungkin ada di package yg sama namun file yg berbeda
 				// dan tidak mungkin ada di package yang berbeda
 				// kita belum tahu methodType itu apa, masukin aj dulu nanti akan kita cek.
-				gsb.interfaceMap[methodType.String()] = methodType
+				gsb.unknownInterfaces[methodType.String()] = &mf
 				continue
 			}
 
@@ -247,9 +254,6 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(typeSpecName string, exp
 			}
 
 		case *ast.SelectorExpr:
-			m := fmt.Sprintf("%v.%v", methodType.X.(*ast.Ident).String(), methodType.Sel.String())
-			fmt.Printf("selector %v\n", m)
-
 			// kalau masuk sini sudah pasti belum pernah ditemukan dalam interfaceType
 			// sudah pasti ada import yang akan kita pakai disini
 			for _, s := range gsb.handleUsedImport(methodType) {
@@ -259,10 +263,18 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(typeSpecName string, exp
 				}
 			}
 
+			m := fmt.Sprintf("%v.%v", methodType.X.(*ast.Ident).String(), methodType.Sel.String())
+			fmt.Printf("selector %v\n", m)
+
+			mf := GogenMethodField{
+				ExtendInterfaces: m,
+				Methods:          []*GogenMethod{},
+			}
+
 			// sudah pasti ada di package yg berbeda yang akan kita telusuri nanti
 			// method Type disini sudah pasti selector,
 			// tapi kita belum tahu Selectornya type apa, masukin aj dulu nanti akan kita cek.
-			gsb.interfaceMap[m] = methodType
+			gsb.unknownInterfaces[m] = &mf
 
 		default:
 			return fmt.Errorf("unsupported type %v\n", methodType)
@@ -300,14 +312,14 @@ func (gsb *GogenInterfaceBuilder) handleFuncType(methodName string, gc *GogenInt
 			if param.Names != nil {
 				for _, n := range param.Names {
 					if IsExported(n.String()) {
-						gf := NewGogenField(n.String(), dataTypeStr, defaultValue)
+						gf := NewGogenField(n.String(), defaultValue, dataTypeStr)
 						gm.Params = append(gm.Params, gf)
 						gsb.checkDefaultValue(gf)
 					}
 				}
 			} else {
 				fieldNameStr := GetSel(param.Type)
-				gf := NewGogenField(fieldNameStr, dataTypeStr, defaultValue)
+				gf := NewGogenField(fieldNameStr, defaultValue, dataTypeStr)
 				gm.Params = append(gm.Params, gf)
 				gsb.checkDefaultValue(gf)
 
@@ -320,7 +332,7 @@ func (gsb *GogenInterfaceBuilder) handleFuncType(methodName string, gc *GogenInt
 		for _, result := range methodType.Results.List {
 			dataTypeStr := getTypeAsString(result.Type)
 
-			defaultValue := handleDefaultValue(dataTypeStr, result.Type)
+			defaultValue := handleDefaultValue2(dataTypeStr, result.Type)
 
 			for _, s := range gsb.handleUsedImport(result.Type) {
 				importFromMap, exist := gsb.importMap[s]
@@ -332,14 +344,14 @@ func (gsb *GogenInterfaceBuilder) handleFuncType(methodName string, gc *GogenInt
 			if result.Names != nil {
 				for _, n := range result.Names {
 					if IsExported(n.String()) {
-						gf := NewGogenField(n.String(), dataTypeStr, defaultValue)
+						gf := NewGogenField(n.String(), defaultValue, dataTypeStr)
 						gm.Params = append(gm.Params, gf)
 						gsb.checkDefaultValue(gf)
 					}
 				}
 			} else {
 				fieldNameStr := GetSel(result.Type)
-				gf := NewGogenField(fieldNameStr, dataTypeStr, defaultValue)
+				gf := NewGogenField(fieldNameStr, defaultValue, dataTypeStr)
 				gm.Params = append(gm.Params, gf)
 				gsb.checkDefaultValue(gf)
 
@@ -391,7 +403,7 @@ func (gsb *GogenInterfaceBuilder) handleSelector(gs *GogenInterface) {
 
 								logDebug("ketemu %v == %v\n", typeSpec.Name.String(), sel)
 
-								gsb.typeMap[fmt.Sprintf("%v.%v", x, typeSpec.Name.String())] = typeSpec
+								gsb.typeMap[fmt.Sprintf("%v.%v", x, typeSpec.Name.String())] = typeSpec.Type
 							}
 						}
 
@@ -437,7 +449,7 @@ func (gsb *GogenInterfaceBuilder) checkDefaultValue(gf *GogenField) {
 		}
 
 		oldDefaultValue := gf.DataType.DefaultValue
-		newDefaultValue := handleDefaultValue(gf.DataType.DefaultValue, typeSpecFromMap.Type)
+		newDefaultValue := handleDefaultValue(gf.DataType.DefaultValue, typeSpecFromMap)
 		gf.SetNewDefaultValue(newDefaultValue)
 
 		logDebug("dataType %v ada di map. defaultValue %v sudah di replace dengan %v\n", gf.DataType.DefaultValue, oldDefaultValue, newDefaultValue)
@@ -461,7 +473,7 @@ func (gsb *GogenInterfaceBuilder) handleUncompleteDefaultValue() {
 		}
 
 		logDebug("tipe data %v untuk field %v sudah ready di map\n", v.DataType.Type, k)
-		newDefaultValue := handleDefaultValue(v.DataType.Type, ts.Type)
+		newDefaultValue := handleDefaultValue(v.DataType.Type, ts)
 
 		logDebug("skg defaultValue yang tadinya %v, sudah direplace dengan %v\n", v.DataType.DefaultValue, newDefaultValue)
 		v.DataType.DefaultValue = newDefaultValue
