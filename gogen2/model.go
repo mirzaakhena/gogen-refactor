@@ -11,14 +11,16 @@ type (
 	ImportType   string
 	ModulePath   string
 	Expression   string
+	Selector     string
 	FieldType    string
 	FieldName    string
+	MethodName   string
 	RequirePath  string
 	CompletePath string
 )
 
 const (
-	ImportTypeSDK       ImportType = "ImportTypeSDK"
+	ImportTypeGoSDK     ImportType = "GO_SDK"
 	ImportTypeExtModule ImportType = "EXT_MODULE"
 	ImportTypeProject   ImportType = "PROJECT"
 )
@@ -44,28 +46,28 @@ type GogenField struct {
 
 func (g *GogenField) handleDefaultValue(expr ast.Expr) {
 
-	logDebug("handleDefaultValue %v %v\n", g.DataType.Type, expr)
+	logDebug("handleDefaultValue %v %v", g.DataType.Type, expr)
 
 	g.DataType.Expr = expr
 
 	switch exprType := expr.(type) {
 	case *ast.Ident:
 
-		logDebug("as ident            : %v\n", exprType.String())
+		logDebug("as ident            : %v", exprType.String())
 
 		// found type in the same file
 		if exprType.Obj != nil {
-			logDebug("dataType %s ada di file yg sama dengan struct target\n", exprType.String())
+			logDebug("dataType %s ada di file yg sama dengan struct target", exprType.String())
 
 			typeSpec, ok := exprType.Obj.Decl.(*ast.TypeSpec)
 			if !ok {
 				panic("cannot assert to TypeSpec")
 			}
 
-			logDebug("start recursive handleDefaultValue utk dataType %v\n", exprType.String())
+			logDebug("start recursive handleDefaultValue utk dataType %v", exprType.String())
 
 			g.handleDefaultValue(typeSpec.Type)
-			logDebug("end   recursive handleDefaultValue dari type %v hasil recursive adalah %v\n", exprType.String(), g.DataType.DefaultValue)
+			logDebug("end   recursive handleDefaultValue dari type %v hasil recursive adalah %v", exprType.String(), g.DataType.DefaultValue)
 
 			return
 		}
@@ -75,31 +77,37 @@ func (g *GogenField) handleDefaultValue(expr ast.Expr) {
 		for {
 
 			if strings.HasPrefix(exprType.String(), "int") || strings.HasPrefix(exprType.String(), "uint") {
-				logDebug("as int / uint\n")
+				logDebug("as int / uint")
 				basicDefaultValue = "0"
 				break
 			}
 
 			if strings.HasPrefix(exprType.String(), "float") {
-				logDebug("as float\n")
+				logDebug("as float")
 				basicDefaultValue = "0.0"
 				break
 			}
 
 			if exprType.String() == "string" {
-				logDebug("as string\n")
+				logDebug("as string")
 				basicDefaultValue = `""`
 				break
 			}
 
 			if exprType.String() == "bool" {
-				logDebug("as bool\n")
+				logDebug("as bool")
 				basicDefaultValue = `false`
 				break
 			}
 
 			if exprType.String() == "any" {
-				logDebug("as any\n")
+				logDebug("as any")
+				basicDefaultValue = `nil`
+				break
+			}
+
+			if exprType.String() == "error" {
+				logDebug("as error")
 				basicDefaultValue = `nil`
 				break
 			}
@@ -116,18 +124,18 @@ func (g *GogenField) handleDefaultValue(expr ast.Expr) {
 			return
 		}
 
-		logDebug("tipe data dasar masih belum diketahui\n")
+		logDebug("tipe data dasar masih belum diketahui")
 
 		g.DataType.DefaultValue = exprType.String()
 
 	case *ast.StructType:
 		v := fmt.Sprintf("%v{}", g.DataType.Type)
-		logDebug("as struct %v\n", v)
+		logDebug("as struct %v", v)
 		g.DataType.DefaultValue = v
 
 	case *ast.ArrayType:
 		v := fmt.Sprintf("%s{}", g.DataType.Type)
-		logDebug("as array %v\n", v)
+		logDebug("as array %v", v)
 		g.DataType.DefaultValue = v
 
 	case *ast.SelectorExpr:
@@ -144,7 +152,7 @@ func (g *GogenField) handleDefaultValue(expr ast.Expr) {
 
 		v := fmt.Sprintf("%s.%s", ident.String(), exprType.Sel.String())
 
-		logDebug("as selector %v\n", v)
+		logDebug("as selector %v", v)
 
 		g.DataType.DefaultValue = v
 
@@ -178,16 +186,16 @@ func (g *GogenField) handleDefaultValue(expr ast.Expr) {
 func NewGogenField(fieldName FieldName, expr ast.Expr) *GogenField {
 
 	dataTypeStr := FieldType(getTypeAsString(expr))
-	logDebug("tipe data           : %v\n", dataTypeStr)
+	logDebug("tipe data           : %v", dataTypeStr)
 
 	gf := GogenField{
 		Name:     fieldName,
 		DataType: newGogenType(dataTypeStr),
 	}
 
-	logDebug("first time handleDefaultValue\n")
+	logDebug("first time handleDefaultValue")
 	gf.handleDefaultValue(expr)
-	logDebug("default value       : %v\n", gf.DataType.DefaultValue)
+	logDebug("default value       : %v", gf.DataType.DefaultValue)
 
 	return &gf
 }
@@ -233,34 +241,35 @@ func NewGogenStruct(structName string) *GogenStruct {
 //}
 
 type GogenMethod struct {
-	Name    string        `json:"name"`
-	Params  []*GogenField `json:"params"`
-	Results []*GogenField `json:"results"`
+	Name           MethodName    `json:"name"`
+	OwnerInterface FieldType     `json:"ownerInterface"`
+	Params         []*GogenField `json:"params"`
+	Results        []*GogenField `json:"results"`
 }
 
-func NewGogenMethod(methodName string) *GogenMethod {
+func NewGogenMethod(ownerInterface FieldType, methodName MethodName) *GogenMethod {
 	return &GogenMethod{
-		Name:    methodName,
-		Params:  make([]*GogenField, 0),
-		Results: make([]*GogenField, 0),
+		OwnerInterface: ownerInterface,
+		Name:           methodName,
+		Params:         make([]*GogenField, 0),
+		Results:        make([]*GogenField, 0),
 	}
 }
 
-type GogenMethodField struct {
-	ExtendInterfaces string         `json:"extendInterfaces"`
-	Methods          []*GogenMethod `json:"methods"`
-}
+//type GogenMethodField struct {
+//	ExtendInterfaces string `json:"extendInterfaces"`
+//}
 
 type GogenInterface struct {
-	Name         string              `json:"name"`
-	Imports      []GogenImport       `json:"imports"`
-	MethodFields []*GogenMethodField `json:"methodFields"`
+	Name    string         `json:"name"`
+	Imports []GogenImport  `json:"imports"`
+	Methods []*GogenMethod `json:"methods"`
 }
 
 func NewGogenInterface(interfaceName string) *GogenInterface {
 	return &GogenInterface{
-		Name:         interfaceName,
-		Imports:      make([]GogenImport, 0),
-		MethodFields: make([]*GogenMethodField, 0),
+		Name:    interfaceName,
+		Imports: make([]GogenImport, 0),
+		Methods: make([]*GogenMethod, 0),
 	}
 }

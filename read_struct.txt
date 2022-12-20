@@ -1,52 +1,30 @@
-saat kita ingin mencari sebuah struct beserta informasi fieldnya,
-maka kita perlu menginputkan path yang akan ditelusuri dan nama struct tersebut
+pada interface akan ada yang namanya interface_item
 
-didalam sebuah path bisa jadi ada banyak file dan kita tidak tahu di path yang mana struct tersebut
+interface item bisa berupa
+- direct method
+    single method
 
-ketika kita menelusuri tiap file, maka kita akan menemukan banyak type
-struct yang kita cari, bisa jadi ada diantaranya.
-kita bisa saja menemukan struct itu diawal ataupun ditengah ataupun diakhir
+- ident
+    in the same file before find the struct target
+    in the same file after find the struct target
+    in different file but still same package
 
-jika kita menemukan type yang namanya tidak sesuai dengan struct yang kita cari,
-maka kita akan akan simpan type tersebut kedalam map
-
-jika kita menemukan type yang namanya sudah sesuai dengan struct yang kita cari,
-maka kita akan telusuri fieldnya
-
-didalam sebuah field ada 3 komponen yang harus kita isi
-1. field name
-2. data type
-3. default value
-
-field name bisa tidak ada, bisa hanya satu, dan bisa lebih dari satu
-
-jika field name tidak ada, maka kita akan menggunakan data type as field name
-jika field name hanya satu maka kita akan menggunakan field tersebut utk field name
-jika field name lebih dari satu maka kita akan membuat lebih dari satu field
-
-didalam struct, ada beberapa bentuk field
+- selector
+    go_sdk
+    go_mod
+    different package in the same project
 
 
+scan project
+    sebelum kita menemukan struct yang menjadi target,
+        kita menemukan bukan type yg kita cari dan kita tidak tahu type ini dipakai atau tidak
+        sehingga kita collect saja semuanya hingga kita menemukan struct yang kita cari
+    saat kita menemukan struct yang kita cari,
+        kita akan fokus untuk scanning semua field dalam struct tersebut
+    sesudah kita menemukan struct yang kita cari,
+        kita mengetahui dengan jelas type apa yang masih perlu lebih detail
+        dan kita bisa lebih fokus untuk mencari type tersebut pada scanning berikutnya
 
-jika type fieldnya adalah tipe dasar maka langsung kita beri nilai defaultnya
-contoh:
-    string  : ""
-    int     : 0
-    uint    : 0
-    float   : 0
-    bool    : false
-
-
-
-
-jika type fieldnya adalah
-interface, any, map, star : nil
-
-jika type fieldnya adalah
-inline struct : NamaStruct{}
-
-jika type fieldnya array
-maka default valuenya []xxx{}
 
 
 

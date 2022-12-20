@@ -13,9 +13,9 @@ func getTypeAsString(expr ast.Expr) string {
 	return typeHandler{}.appendType(expr)
 }
 
-func (r typeHandler) Start(expr ast.Expr) string {
-	return r.appendType(expr)
-}
+//func (r typeHandler) Start(expr ast.Expr) string {
+//	return r.appendType(expr)
+//}
 
 func (r typeHandler) appendType(expr ast.Expr) string {
 	var param bytes.Buffer
