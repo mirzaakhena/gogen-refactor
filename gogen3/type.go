@@ -1,4 +1,4 @@
-package gogen2
+package gogen3
 
 import (
 	"bytes"

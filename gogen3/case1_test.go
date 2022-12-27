@@ -14,26 +14,12 @@ func TestCase1(t *testing.T) {
 		os.Exit(1)
 	}
 
-	//packageName := PackageName("p1")
-
-	//expGi := GogenInterface{
-	//	//CurrentPackage: &packageName,
-	//	InterfaceType: &GogenFieldType{
-	//		Name: "MyInterfaceInFile2",
-	//		TypeSpec: &ast.InterfaceType{
-	//			Methods: nil,
-	//		},
-	//		DefaultValue: "nil",
-	//		Imports:      nil,
-	//	},
-	//	Interfaces: []*GogenInterface{},
-	//	Methods:    []*GogenMethod{},
-	//}
-
 	_ = actGi
 
-	//_ = expGi
-
-	//assert.Equal(t, expGi.InterfaceType, actGi.InterfaceType)
+	//jsonInBytes, err := json.MarshalIndent(actGi, "", " ")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Printf("%v\n", string(jsonInBytes))
 
 }

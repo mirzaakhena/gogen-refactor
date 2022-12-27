@@ -14,6 +14,8 @@ import (
 
 func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModProperties) (map[Expression]*GogenImport, error) {
 
+	LogDebug(1, ">>>>>>>>>>>>>>>>>>>>>>>>>>>> %v", importSpecs)
+
 	importInFile := map[Expression]*GogenImport{}
 
 	for _, importSpec := range importSpecs {
@@ -257,6 +259,10 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 
 				gi.Methods = append(gi.Methods, gm)
 
+				fields := make([]*GogenField, 0)
+
+				handleFuncParamResultType(methodType, gm, fields)
+
 			case *ast.Ident:
 
 				newGi := new(GogenInterface)
@@ -316,11 +322,60 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 		}
 
 	default:
-		return fmt.Errorf("it is not an interface but %T", ts)
+		return fmt.Errorf("this is not an interface but %T", ts)
 
 	}
 
 	return nil
+}
+
+func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, fields []*GogenField) {
+
+	// TODO later we need to calculate all the default value based on fields
+
+	if methodType.Params.NumFields() > 0 {
+		for _, param := range methodType.Params.List {
+
+			if param.Names != nil {
+
+				for _, n := range param.Names {
+					gf := NewGogenField(n.String(), param.Type)
+					gm.Params = append(gm.Params, gf)
+					fields = append(fields, gf)
+				}
+
+			} else {
+
+				gf := NewGogenField(getSel(param.Type), param.Type)
+				gm.Params = append(gm.Params, gf)
+				fields = append(fields, gf)
+
+			}
+
+		}
+	}
+
+	if methodType.Results.NumFields() > 0 {
+		for _, result := range methodType.Results.List {
+
+			if result.Names != nil {
+
+				for _, n := range result.Names {
+					gf := NewGogenField(n.String(), result.Type)
+					gm.Params = append(gm.Params, gf)
+					fields = append(fields, gf)
+				}
+
+			} else {
+
+				gf := NewGogenField(getSel(result.Type), result.Type)
+				gm.Params = append(gm.Params, gf)
+				fields = append(fields, gf)
+
+			}
+
+		}
+	}
 }
 
 func traceType(packagePath string, interfaceTargetName string, collectedType map[FieldType]*TypeProperties, afterFound func(tp *TypeProperties) error) error {
@@ -345,12 +400,10 @@ func traceType(packagePath string, interfaceTargetName string, collectedType map
 				return err
 			}
 
-			//importInFile := map[Expression]*GogenImport{}
-
 			ast.Inspect(file, func(node ast.Node) bool {
 
 				if err != nil {
-					LogDebug(3, "ignore everything since we have err %v", err.Error())
+					LogDebug(3, "ignore everything since we have err : %v", err.Error())
 					return false
 				}
 
@@ -363,7 +416,6 @@ func traceType(packagePath string, interfaceTargetName string, collectedType map
 				tp := TypeProperties{
 					File:     file,
 					TypeSpec: typeSpec,
-					//Imports: importInFile,
 				}
 
 				collectedType[FieldType(typeSpecName)] = &tp
@@ -388,4 +440,35 @@ func traceType(packagePath string, interfaceTargetName string, collectedType map
 
 	}
 	return nil
+}
+
+func getSel(expr ast.Expr) string {
+
+	switch fieldType := expr.(type) {
+
+	case *ast.SelectorExpr:
+		return getSel(fieldType.Sel)
+
+	case *ast.StarExpr:
+		return getSel(fieldType.X)
+
+	case *ast.Ident:
+		return fieldType.String()
+	}
+
+	return ""
+}
+
+func NewGogenField(name string, expr ast.Expr) *GogenField {
+
+	return &GogenField{
+		Name: GogenFieldName(name),
+		DataType: &GogenFieldType{
+			Name:         FieldType(getTypeAsString(expr)),
+			Expr:         expr,
+			DefaultValue: "",
+			File:         nil,
+		},
+	}
+
 }

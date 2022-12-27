@@ -33,30 +33,28 @@ type GogenImport struct {
 }
 
 type GogenFieldType struct {
-	Name         FieldType
-	Expr         ast.Expr
-	DefaultValue string
-	File         *ast.File
-	//TypeProperties *TypeProperties
-	//Imports map[Expression]*GogenImport
+	Name         FieldType `json:"name,omitempty"`
+	Expr         ast.Expr  `json:"-"`
+	DefaultValue string    `json:"defaultValue,omitempty"`
+	File         *ast.File `json:"-"`
 }
 
 type GogenField struct {
-	Name     GogenFieldName
-	DataType *GogenFieldType
+	Name     GogenFieldName  `json:"name,omitempty"`
+	DataType *GogenFieldType `json:"dataType,omitempty"`
 }
 
 type GogenMethod struct {
-	Name    GogenMethodName
-	Params  []*GogenField
-	Results []*GogenField
+	Name    GogenMethodName `json:"name,omitempty"`
+	Params  []*GogenField   `json:"params,omitempty"`
+	Results []*GogenField   `json:"results,omitempty"`
 }
 
 type GogenInterface struct {
 	//CurrentPackage *PackageName
-	InterfaceType *GogenFieldType
-	Interfaces    []*GogenInterface
-	Methods       []*GogenMethod
+	InterfaceType *GogenFieldType   `json:"interfaceType,omitempty"`
+	Interfaces    []*GogenInterface `json:"interfaces,omitempty"`
+	Methods       []*GogenMethod    `json:"methods,omitempty"`
 }
 
 type TypeProperties struct {

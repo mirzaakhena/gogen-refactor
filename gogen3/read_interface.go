@@ -12,8 +12,6 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 		return nil, err
 	}
 
-	_ = gomodProperties
-
 	gi := new(GogenInterface)
 
 	unknownInterface := map[FieldType]*GogenInterface{}
