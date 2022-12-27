@@ -51,6 +51,8 @@ func (gsb *GogenBuilder) handleGoMod() error {
 
 func (gsb *GogenBuilder) handleImport(genDecl *ast.GenDecl) {
 
+	logDebug("baca import")
+
 	for _, spec := range genDecl.Specs {
 
 		importSpec, ok := spec.(*ast.ImportSpec)
@@ -125,18 +127,11 @@ func (gsb *GogenBuilder) handleImport(genDecl *ast.GenDecl) {
 
 }
 
-func (gsb *GogenBuilder) handleUsedImport(expr ast.Expr) []Expression {
+func (gsb *GogenBuilder) extractAllExpression(expr ast.Expr) []Expression {
 
 	switch fieldType := expr.(type) {
-	case *ast.StructType:
-
-		str := make([]Expression, 0)
-		for _, f := range fieldType.Fields.List {
-			str = append(str, gsb.handleUsedImport(f.Type)...)
-		}
-		return str
-
 	case *ast.SelectorExpr:
+
 		x := Expression(fieldType.X.(*ast.Ident).String())
 		sel := fieldType.Sel.String()
 
@@ -144,43 +139,51 @@ func (gsb *GogenBuilder) handleUsedImport(expr ast.Expr) []Expression {
 
 		return []Expression{Expression(fieldType.X.(*ast.Ident).String())}
 
-	case *ast.StarExpr:
-		return gsb.handleUsedImport(fieldType.X)
+	case *ast.StructType:
+
+		str := make([]Expression, 0)
+		for _, f := range fieldType.Fields.List {
+			str = append(str, gsb.extractAllExpression(f.Type)...)
+		}
+		return str
 
 	case *ast.MapType:
 		str := make([]Expression, 0)
-		key := gsb.handleUsedImport(fieldType.Key)
+		key := gsb.extractAllExpression(fieldType.Key)
 		if key != nil {
 			str = append(str, key...)
 		}
-		value := gsb.handleUsedImport(fieldType.Value)
+		value := gsb.extractAllExpression(fieldType.Value)
 		if value != nil {
 			str = append(str, value...)
 		}
 		return str
-
-	case *ast.ArrayType:
-		return gsb.handleUsedImport(fieldType.Elt)
-
-	case *ast.ChanType:
-		return gsb.handleUsedImport(fieldType.Value)
 
 	case *ast.FuncType:
 		str := make([]Expression, 0)
 
 		if fieldType.Params.NumFields() > 0 {
 			for _, x := range fieldType.Params.List {
-				str = append(str, gsb.handleUsedImport(x.Type)...)
+				str = append(str, gsb.extractAllExpression(x.Type)...)
 			}
 		}
 
 		if fieldType.Results.NumFields() > 0 {
 			for _, x := range fieldType.Results.List {
-				str = append(str, gsb.handleUsedImport(x.Type)...)
+				str = append(str, gsb.extractAllExpression(x.Type)...)
 			}
 		}
 
 		return str
+
+	case *ast.StarExpr:
+		return gsb.extractAllExpression(fieldType.X)
+
+	case *ast.ArrayType:
+		return gsb.extractAllExpression(fieldType.Elt)
+
+	case *ast.ChanType:
+		return gsb.extractAllExpression(fieldType.Value)
 
 	}
 
@@ -212,4 +215,64 @@ func (gsb *GogenBuilder) checkDefaultValue(gf *GogenField) {
 
 	logDebug("default value utk field %v dengan dataType %v sudah final, yaitu : %v", gf.Name, gf.DataType.DefaultValue, gf.DataType.DefaultValue)
 
+}
+
+func (gsb *GogenBuilder) traceType(path string, targetTypeName FieldType, afterFound func(fieldType FieldType, expr ast.Expr) error) error {
+
+	logDebug("kita akan parsing path %v untuk mencari type target bernama %v", path, targetTypeName)
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+
+	done := false
+
+	for _, pkg := range pkgs {
+
+		for _, file := range pkg.Files {
+
+			ast.Inspect(file, func(node ast.Node) bool {
+
+				// ignore the rest if error or done
+				if err != nil || done {
+					logDebug("dipaksa keluar karena %v", err.Error())
+					return false
+				}
+
+				// handle import
+				genDecl, ok := node.(*ast.GenDecl)
+				if ok && genDecl.Tok == token.IMPORT {
+					gsb.handleImport(genDecl)
+					return true
+				}
+
+				// focus to type
+				typeSpec, ok := node.(*ast.TypeSpec)
+				if !ok {
+					return true
+				}
+
+				// get type name
+				typeSpecName := typeSpec.Name.String()
+				logDebug("bertemu type %s, yg kita cari %v", typeSpecName, targetTypeName)
+
+				if typeSpecName != string(targetTypeName) {
+
+					logDebug("karena type %s != %s maka kita simpan dalam typeMap", typeSpecName, targetTypeName)
+					gsb.typeMap[FieldType(typeSpecName)] = typeSpec.Type
+
+					return false
+				}
+
+				err = afterFound(targetTypeName, typeSpec.Type)
+
+				return true
+			})
+
+		}
+
+	}
+
+	return nil
 }

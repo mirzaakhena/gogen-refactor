@@ -36,7 +36,7 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 	}
 
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, gsb.path, nil, parser.ParseComments)
+	pkgs, err := parser.ParseDir(fset, string(gsb.path), nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (gsb *GogenStructBuilder) Build(structName string) (*GogenStruct, error) {
 
 				for _, field := range structType.Fields.List {
 
-					for _, s := range gsb.handleUsedImport(field.Type) {
+					for _, s := range gsb.extractAllExpression(field.Type) {
 						importFromMap, exist := gsb.importMap[s]
 						if exist {
 							gsb.usedImport[s] = importFromMap

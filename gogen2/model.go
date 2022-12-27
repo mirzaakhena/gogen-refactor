@@ -261,14 +261,14 @@ func NewGogenMethod(ownerInterface FieldType, methodName MethodName) *GogenMetho
 //}
 
 type GogenInterface struct {
-	Name    string         `json:"name"`
+	Name    FieldType      `json:"name"`
 	Imports []GogenImport  `json:"imports"`
 	Methods []*GogenMethod `json:"methods"`
 }
 
 func NewGogenInterface(interfaceName string) *GogenInterface {
 	return &GogenInterface{
-		Name:    interfaceName,
+		Name:    FieldType(interfaceName),
 		Imports: make([]GogenImport, 0),
 		Methods: make([]*GogenMethod, 0),
 	}

@@ -13,7 +13,7 @@ func getTypeAsString(expr ast.Expr) string {
 	return typeHandler{}.appendType(expr)
 }
 
-//func (r typeHandler) Start(expr ast.Expr) string {
+//func (r typeHandler) Start(expr ast.TypeSpec) string {
 //	return r.appendType(expr)
 //}
 

@@ -22,15 +22,15 @@ func main() {
 	// "/usr/local/go/src/time/time.go"
 	// "Time"
 
-	gs, err := gogen2.NewGogenStructBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
-	if err != nil {
-		panic(err)
-	}
-
-	//gs, err := gogen2.NewGogenInterfaceBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
+	//gs, err := gogen2.NewGogenStructBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
 	//if err != nil {
 	//	panic(err)
 	//}
+
+	gs, err := gogen2.NewGogenInterfaceBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
+	if err != nil {
+		panic(err)
+	}
 
 	_ = gs
 
