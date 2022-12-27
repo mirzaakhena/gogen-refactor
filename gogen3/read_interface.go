@@ -21,10 +21,6 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 	collectedType := map[FieldType]*TypeProperties{}
 
 	err = traceType(packagePath, interfaceTargetName, collectedType, func(tp *TypeProperties) error {
-		//importInFile, err := handleImport(astFile.Imports, gomodProperties)
-		//if err != nil {
-		//	return err
-		//}
 
 		err = handleGogenInterface(gi, unknownInterface, tp.TypeSpec, tp.File)
 		if err != nil {
@@ -55,7 +51,7 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 
 				err = traceType(string(gogenImport.CompletePath), selectorExpr.Sel.String(), collectedType, func(tp *TypeProperties) error {
 
-					err = handleGogenInterface(uki, unknownInterface, tp.TypeSpec, tp.File)
+					err := handleGogenInterface(uki, unknownInterface, tp.TypeSpec, tp.File)
 					if err != nil {
 						return err
 					}

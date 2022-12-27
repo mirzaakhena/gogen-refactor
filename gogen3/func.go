@@ -213,10 +213,6 @@ func NewGogenMethod(methodName string) *GogenMethod {
 func PrintGogenInteface(level int, gft *GogenInterface) {
 	if gft.InterfaceType != nil {
 
-		//if gft.IsUnknown() {
-		//	return
-		//}
-
 		LogDebug(level, "GogenType %s", gft.InterfaceType.Name)
 
 		for _, v := range gft.Interfaces {
