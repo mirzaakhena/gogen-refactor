@@ -69,15 +69,15 @@ type GoModProperties struct {
 	RequirePath         map[ImportPath]Version
 }
 
-func NewGogenField(name string, expr ast.Expr) *GogenField {
+func NewGogenField(name string, expr ast.Expr, fieldType FieldType, astFile *ast.File) *GogenField {
 
 	return &GogenField{
 		Name: GogenFieldName(name),
 		DataType: &GogenFieldType{
-			Name:         FieldType(getTypeAsString(expr)),
+			Name:         fieldType,
 			Expr:         expr,
 			DefaultValue: "",
-			File:         nil,
+			File:         astFile,
 		},
 	}
 

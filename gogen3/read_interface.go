@@ -7,9 +7,8 @@ func NewGogenInterfaceBuilder(packagePath, goModFilePath, interfaceTargetName st
 		return nil, err
 	}
 
-	gogenInterfaceRoot, err := traceType(packagePath, gomodProperties, interfaceTargetName)
+	gogenInterfaceRoot, err := traceInterfaceType(packagePath, gomodProperties, interfaceTargetName)
 	if err != nil {
-		LogDebug(1, ">>>>>>>>> masuk sini")
 		return nil, err
 	}
 

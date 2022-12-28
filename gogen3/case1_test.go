@@ -16,8 +16,13 @@ func TestCase1(t *testing.T) {
 
 	_ = actGi
 
+	fmt.Printf("\n\n\n")
+
 	for _, m := range PrintAllMethod(actGi) {
-		fmt.Printf(">>> %v\n", m.Name)
+		LogDebug(0, "method : %v", m.Name)
+		for _, p := range m.Params {
+			LogDebug(1, "field : %v %v = %v", p.Name, p.DataType.Name, p.DataType.DefaultValue)
+		}
 	}
 
 	//jsonInBytes, err := json.MarshalIndent(actGi, "", " ")
