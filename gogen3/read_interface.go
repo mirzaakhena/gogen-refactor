@@ -12,7 +12,7 @@ func NewGogenInterfaceBuilder(packagePath, goModFilePath, interfaceTargetName st
 		return nil, err
 	}
 
-	PrintGogenInterface(0, gogenInterfaceRoot)
+	//PrintGogenInterface(0, gogenInterfaceRoot)
 
 	return gogenInterfaceRoot, nil
 }

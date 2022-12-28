@@ -12,13 +12,7 @@ import (
 	"strings"
 )
 
-type FieldMethodSignature string
-
-func NewFieldMethodSignature(m GogenMethodName, f GogenFieldName) FieldMethodSignature {
-	return FieldMethodSignature(fmt.Sprintf("%v.%v", m, f))
-}
-
-func traceGeneralType(packagePath string, gomodProperties *GoModProperties, targetTypeName string) (*GogenFieldType, error) {
+func traceGeneralType(packagePath string, targetTypeName string) (*GogenFieldType, error) {
 
 	var gft *GogenFieldType
 
@@ -174,7 +168,6 @@ func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, in
 		if err != nil {
 			return nil, err
 		}
-		//LogDebug(1, ">>>>>>> %v %v ", ft, uf.DataType.DefaultValue)
 	}
 
 	return gogenInterfaceTarget, nil
@@ -252,12 +245,17 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 
 		interfacePath := string(importInFile[theX].CompletePath)
 
+		//interfacePath, err := getPathFromSelector(astFile, gomodProperties, exprType)
+		//if err != nil {
+		//	return "", err
+		//}
+
 		// TODO hardcoded for context temporary
 		if importInFile[theX].Path == "context" {
 			return string(gf.Name), nil
 		}
 
-		gft, err := traceGeneralType(interfacePath, gomodProperties, exprType.Sel.String())
+		gft, err := traceGeneralType(interfacePath, exprType.Sel.String())
 		if err != nil {
 			return "", err
 		}
@@ -349,6 +347,11 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 
 func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typeProperties *TypeProperties, methodType *ast.SelectorExpr) error {
 
+	//interfacePath, err := getPathFromSelector(typeProperties.AstFile, gomodProperties, methodType)
+	//if err != nil {
+	//	return err
+	//}
+
 	importInFile, err := handleImport(typeProperties.AstFile.Imports, gomodProperties)
 	if err != nil {
 		return err
@@ -367,6 +370,17 @@ func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typePr
 
 	return nil
 }
+
+//func getPathFromSelector(astFile *ast.File, gomodProperties *GoModProperties, methodType *ast.SelectorExpr) (string, error) {
+//	importInFile, err := handleImport(astFile.Imports, gomodProperties)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	theX := Expression(methodType.X.(*ast.Ident).String())
+//
+//	return string(importInFile[theX].CompletePath), nil
+//}
 
 func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownInterface map[FieldType]*GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, typeProperties *TypeProperties, methodType *ast.Ident) error {
 	internalGi := new(GogenInterface)
@@ -387,22 +401,24 @@ func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownIn
 
 		LogDebug(3, "unknown %s", methodType.String())
 
-	} else {
-		newTypeSpec, ok := methodType.Obj.Decl.(*ast.TypeSpec)
-		if !ok {
-			return fmt.Errorf("%s is not type", methodType.String())
-		}
-
-		newTp := TypeProperties{
-			AstFile:  typeProperties.AstFile,
-			TypeSpec: newTypeSpec,
-		}
-
-		err := handleGogenInterface(internalGi, unknownInterface, unknownFields, &newTp, gomodProperties)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
+
+	newTypeSpec, ok := methodType.Obj.Decl.(*ast.TypeSpec)
+	if !ok {
+		return fmt.Errorf("%s is not type", methodType.String())
+	}
+
+	newTp := TypeProperties{
+		AstFile:  typeProperties.AstFile,
+		TypeSpec: newTypeSpec,
+	}
+
+	err := handleGogenInterface(internalGi, unknownInterface, unknownFields, &newTp, gomodProperties)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -640,14 +656,14 @@ func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, unknow
 
 				for _, n := range result.Names {
 					gf := NewGogenField(n.String(), result.Type, fieldType, astFile)
-					gm.Params = append(gm.Params, gf)
+					gm.Results = append(gm.Results, gf)
 					unknownFields[NewFieldMethodSignature(gm.Name, gf.Name)] = gf
 				}
 
 			} else {
 
 				gf := NewGogenField(getSel(result.Type), result.Type, fieldType, astFile)
-				gm.Params = append(gm.Params, gf)
+				gm.Results = append(gm.Results, gf)
 				unknownFields[NewFieldMethodSignature(gm.Name, gf.Name)] = gf
 
 			}

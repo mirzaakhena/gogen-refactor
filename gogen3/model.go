@@ -1,21 +1,23 @@
 package gogen3
 
 import (
+	"fmt"
 	"go/ast"
 )
 
 type (
-	GogenMethodName    string
-	GogenInterfaceName string
-	GogenFieldName     string
-	FieldType          string
-	PackageName        string
-	ImportType         string
-	ImportPath         string
-	ImportName         string
-	AbsolutePath       string
-	Expression         string
-	Version            string
+	GogenMethodName      string
+	GogenInterfaceName   string
+	GogenFieldName       string
+	FieldType            string
+	PackageName          string
+	ImportType           string
+	ImportPath           string
+	ImportName           string
+	AbsolutePath         string
+	Expression           string
+	Version              string
+	FieldMethodSignature string
 )
 
 const (
@@ -97,4 +99,8 @@ func NewGogenInterface() *GogenInterface {
 		Interfaces:    make([]*GogenInterface, 0),
 		Methods:       make([]*GogenMethod, 0),
 	}
+}
+
+func NewFieldMethodSignature(m GogenMethodName, f GogenFieldName) FieldMethodSignature {
+	return FieldMethodSignature(fmt.Sprintf("%v.%v", m, f))
 }

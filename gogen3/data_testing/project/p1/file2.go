@@ -17,11 +17,11 @@ type SaveTodoRepo interface {
 type AnAlias Other
 
 type MyInterfaceInFile2 interface {
-	//TheOnlyOne(ctx context.Context)
 	AnAlias
-	MethodOne(x int, y string) (bool, error)
-	BeforeTargetSameFileSamePackage
-	AfterTargetSameFileSamePackage
+	//MethodOne(x int, y string) (bool, error)
+	//BeforeTargetSameFileSamePackage
+	//AfterTargetSameFileSamePackage
+	//TheOnlyOne(ctx context.Context)
 }
 
 type AfterTargetSameFileSamePackage interface {
