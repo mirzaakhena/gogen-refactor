@@ -58,7 +58,7 @@ type GogenInterface struct {
 }
 
 type TypeProperties struct {
-	File     *ast.File
+	AstFile  *ast.File
 	TypeSpec *ast.TypeSpec
 	//Imports map[Expression]*GogenImport
 }
@@ -67,4 +67,34 @@ type GoModProperties struct {
 	AbsolutePathProject string
 	ModuleName          string
 	RequirePath         map[ImportPath]Version
+}
+
+func NewGogenField(name string, expr ast.Expr) *GogenField {
+
+	return &GogenField{
+		Name: GogenFieldName(name),
+		DataType: &GogenFieldType{
+			Name:         FieldType(getTypeAsString(expr)),
+			Expr:         expr,
+			DefaultValue: "",
+			File:         nil,
+		},
+	}
+
+}
+
+func newGogenMethod(methodName string) *GogenMethod {
+	return &GogenMethod{
+		Name:    GogenMethodName(methodName),
+		Params:  make([]*GogenField, 0),
+		Results: make([]*GogenField, 0),
+	}
+}
+
+func NewGogenInterface() *GogenInterface {
+	return &GogenInterface{
+		InterfaceType: nil,
+		Interfaces:    make([]*GogenInterface, 0),
+		Methods:       make([]*GogenMethod, 0),
+	}
 }

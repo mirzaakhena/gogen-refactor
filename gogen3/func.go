@@ -12,6 +12,213 @@ import (
 	"strings"
 )
 
+func traceType(packagePath string, gomodProperties *GoModProperties, interfaceTargetName string) (*GogenInterface, error) {
+
+	gogenInterfaceTarget := NewGogenInterface()
+
+	unknownInterfaces := map[FieldType]*GogenInterface{}
+
+	unknownFields := make([]*GogenField, 0)
+
+	collectedType := map[FieldType]*TypeProperties{}
+
+	LogDebug(0, "from path %v try to find interface with name %v", packagePath, interfaceTargetName)
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pkg := range pkgs {
+
+		packageName := PackageName(pkg.Name)
+
+		LogDebug(1, "package %s", packageName)
+
+		for _, astFile := range pkg.Files {
+
+			if err != nil {
+				LogDebug(2, "ignore everything since we are done or has an err")
+				return nil, err
+			}
+
+			ast.Inspect(astFile, func(node ast.Node) bool {
+
+				if err != nil {
+					LogDebug(3, "ignore everything since we have err : %v", err.Error())
+					return false
+				}
+
+				typeSpec, ok := node.(*ast.TypeSpec)
+				if !ok {
+					return true
+				}
+
+				typeSpecName := typeSpec.Name.String()
+
+				tp := TypeProperties{
+					AstFile:  astFile,
+					TypeSpec: typeSpec,
+				}
+
+				if typeSpecName != interfaceTargetName {
+
+					LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
+
+					collectedType[FieldType(typeSpecName)] = &tp
+
+					return false
+				}
+
+				LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(astFile.Package).Name())
+
+				err = handleGogenInterface(gogenInterfaceTarget, unknownInterfaces, unknownFields, &tp, gomodProperties)
+				if err != nil {
+					return false
+				}
+
+				return true
+			})
+
+		}
+
+	}
+
+	// solve all unknown interface
+	for fieldType, unknownInterface := range unknownInterfaces {
+
+		typeProperties, exist := collectedType[fieldType]
+		if !exist {
+			return nil, fmt.Errorf("field type %v is not exist anywhere", fieldType)
+		}
+
+		err = handleGogenInterface(unknownInterface, unknownInterfaces, unknownFields, typeProperties, gomodProperties)
+		if err != nil {
+			return nil, err
+		}
+
+		delete(unknownInterfaces, fieldType)
+
+	}
+
+	return gogenInterfaceTarget, nil
+}
+
+func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*GogenInterface, unknownFields []*GogenField, typeProperties *TypeProperties, gomodProperties *GoModProperties) error {
+
+	gi.InterfaceType = &GogenFieldType{
+		Name:         FieldType(typeProperties.TypeSpec.Name.String()),
+		Expr:         typeProperties.TypeSpec.Type,
+		DefaultValue: "nil",
+		File:         typeProperties.AstFile,
+	}
+
+	switch ts := typeProperties.TypeSpec.Type.(type) {
+	case *ast.InterfaceType:
+
+		LogDebug(3, "as interface with name %s", gi.InterfaceType.Name)
+
+		for _, method := range ts.Methods.List {
+			switch methodType := method.Type.(type) {
+
+			case *ast.FuncType:
+				err := handleDirectInlineMethod(gi, method, unknownFields)
+				if err != nil {
+					return err
+				}
+
+			case *ast.Ident:
+				err := handleIdent(gi, gomodProperties, unknownInterface, unknownFields, typeProperties, methodType)
+				if err != nil {
+					return err
+				}
+
+			case *ast.SelectorExpr:
+				err := handleSelector(gi, gomodProperties, typeProperties, methodType)
+				if err != nil {
+					return err
+				}
+
+			default:
+				// TODO what about type alias?
+				err := fmt.Errorf("un-handled method type %T", methodType)
+				return err
+			}
+		}
+
+	case *ast.Ident:
+
+		err := handleIdent(gi, gomodProperties, unknownInterface, unknownFields, typeProperties, ts)
+		if err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("this is not an interface but %T", ts)
+
+	}
+
+	return nil
+}
+
+func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typeProperties *TypeProperties, methodType *ast.SelectorExpr) error {
+
+	importInFile, err := handleImport(typeProperties.AstFile.Imports, gomodProperties)
+	if err != nil {
+		return err
+	}
+
+	theX := Expression(methodType.X.(*ast.Ident).String())
+
+	interfacePath := string(importInFile[theX].CompletePath)
+
+	internalGi, err := traceType(interfacePath, gomodProperties, methodType.Sel.String())
+	if err != nil {
+		return err
+	}
+
+	gi.Interfaces = append(gi.Interfaces, internalGi)
+	return nil
+}
+
+func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownInterface map[FieldType]*GogenInterface, unknownFields []*GogenField, typeProperties *TypeProperties, methodType *ast.Ident) error {
+	internalGi := new(GogenInterface)
+	gi.Interfaces = append(gi.Interfaces, internalGi)
+
+	if methodType.Obj == nil {
+
+		name := FieldType(methodType.String())
+
+		internalGi.InterfaceType = &GogenFieldType{
+			Name:         name,
+			Expr:         methodType,
+			DefaultValue: "nil",
+			File:         typeProperties.AstFile,
+		}
+
+		unknownInterface[name] = internalGi
+
+		LogDebug(3, "unknown %s", methodType.String())
+
+	} else {
+		newTypeSpec, ok := methodType.Obj.Decl.(*ast.TypeSpec)
+		if !ok {
+			return fmt.Errorf("%s is not type", methodType.String())
+		}
+
+		newTp := TypeProperties{
+			AstFile:  typeProperties.AstFile,
+			TypeSpec: newTypeSpec,
+		}
+
+		err := handleGogenInterface(internalGi, unknownInterface, unknownFields, &newTp, gomodProperties)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModProperties) (map[Expression]*GogenImport, error) {
 
 	importInFile := map[Expression]*GogenImport{}
@@ -179,161 +386,37 @@ func handleGoMod(goModFilePath string) (*GoModProperties, error) {
 	return &gm, nil
 }
 
-func LogDebug(identationLevel int, format string, args ...any) {
-	x := fmt.Sprintf("%%%ds", identationLevel*2)
-	y := fmt.Sprintf(x, "")
-	fmt.Printf(y+format+"\n", args...)
-}
-
-func handleDirectInlineMethod(method *ast.Field) (*GogenMethod, error) {
+func handleDirectInlineMethod(gi *GogenInterface, method *ast.Field, unknownFields []*GogenField) error {
 
 	if method.Names == nil && len(method.Names) > 0 {
 		err := fmt.Errorf("method must have name")
-		return nil, err
+		return err
 	}
 	methodName := method.Names[0].String()
 
 	if !ast.IsExported(methodName) {
-		return nil, nil
+		return nil
 	}
 
 	LogDebug(4, "as function found method %s", methodName)
 
-	gm := NewGogenMethod(methodName)
+	gm := newGogenMethod(methodName)
 
-	// TODO handle param later
+	gi.Methods = append(gi.Methods, gm)
 
-	return gm, nil
-}
-
-func NewGogenMethod(methodName string) *GogenMethod {
-	return &GogenMethod{
-		Name:    GogenMethodName(methodName),
-		Params:  make([]*GogenField, 0),
-		Results: make([]*GogenField, 0),
+	methodType, ok := method.Type.(*ast.FuncType)
+	if !ok {
+		return fmt.Errorf("somehow cannot convert to FuncType")
 	}
-}
 
-func PrintGogenInteface(level int, gft *GogenInterface) {
-	if gft.InterfaceType != nil {
-
-		LogDebug(level, "GogenType %s", gft.InterfaceType.Name)
-
-		for _, v := range gft.Interfaces {
-			PrintGogenInteface(level+1, v)
-		}
-		for _, v := range gft.Methods {
-			LogDebug(level+1, "Method %s", v.Name)
-		}
-	}
-}
-
-func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*GogenInterface, typeSpec *ast.TypeSpec, astFile *ast.File) error {
-
-	switch ts := typeSpec.Type.(type) {
-	case *ast.InterfaceType:
-
-		gi.InterfaceType = &GogenFieldType{
-			Name:         FieldType(typeSpec.Name.String()),
-			Expr:         ts,
-			DefaultValue: "nil",
-			File:         astFile,
-		}
-
-		//gi.CurrentPackage = packageName
-		gi.Interfaces = make([]*GogenInterface, 0)
-		gi.Methods = make([]*GogenMethod, 0)
-
-		LogDebug(3, "as interface with name %s", gi.InterfaceType.Name)
-
-		for _, method := range ts.Methods.List {
-			switch methodType := method.Type.(type) {
-			case *ast.FuncType:
-
-				gm, err := handleDirectInlineMethod(method)
-				if err != nil {
-					return err
-				}
-
-				if gm == nil {
-					continue
-				}
-
-				gi.Methods = append(gi.Methods, gm)
-
-				fields := make([]*GogenField, 0)
-
-				handleFuncParamResultType(methodType, gm, fields)
-
-			case *ast.Ident:
-
-				newGi := new(GogenInterface)
-				gi.Interfaces = append(gi.Interfaces, newGi)
-
-				if methodType.Obj == nil {
-
-					name := FieldType(methodType.String())
-
-					newGi.InterfaceType = &GogenFieldType{
-						Name:         name,
-						Expr:         methodType,
-						DefaultValue: "nil",
-						File:         astFile,
-					}
-
-					unknownInterface[name] = newGi
-
-					LogDebug(3, "unknown %s", methodType.String())
-					continue
-				}
-
-				newTypeSpec, ok := methodType.Obj.Decl.(*ast.TypeSpec)
-				if !ok {
-					return fmt.Errorf("%s is not type", methodType.String())
-				}
-
-				err := handleGogenInterface(newGi, unknownInterface, newTypeSpec, astFile)
-				if err != nil {
-					return err
-				}
-
-			case *ast.SelectorExpr:
-
-				newGi := new(GogenInterface)
-				gi.Interfaces = append(gi.Interfaces, newGi)
-
-				x := methodType.X.(*ast.Ident).String()
-				sel := methodType.Sel.String()
-
-				name := FieldType(fmt.Sprintf("%v.%v", x, sel))
-
-				newGi.InterfaceType = &GogenFieldType{
-					Name:         name,
-					Expr:         methodType,
-					DefaultValue: "nil",
-					File:         astFile,
-				}
-
-				unknownInterface[name] = newGi
-
-			default:
-				// TODO what about type alias?
-				err := fmt.Errorf("un-handled method type %T", methodType)
-				return err
-			}
-		}
-
-	default:
-		return fmt.Errorf("this is not an interface but %T", ts)
-
-	}
+	handleFuncParamResultType(methodType, gm, unknownFields)
 
 	return nil
 }
 
-func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, fields []*GogenField) {
+func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, unknownFields []*GogenField) {
 
-	// TODO later we need to calculate all the default value based on fields
+	// TODO later we need to calculate all the default value based on unknownFields
 
 	if methodType.Params.NumFields() > 0 {
 		for _, param := range methodType.Params.List {
@@ -343,14 +426,14 @@ func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, fields
 				for _, n := range param.Names {
 					gf := NewGogenField(n.String(), param.Type)
 					gm.Params = append(gm.Params, gf)
-					fields = append(fields, gf)
+					unknownFields = append(unknownFields, gf)
 				}
 
 			} else {
 
 				gf := NewGogenField(getSel(param.Type), param.Type)
 				gm.Params = append(gm.Params, gf)
-				fields = append(fields, gf)
+				unknownFields = append(unknownFields, gf)
 
 			}
 
@@ -365,83 +448,19 @@ func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, fields
 				for _, n := range result.Names {
 					gf := NewGogenField(n.String(), result.Type)
 					gm.Params = append(gm.Params, gf)
-					fields = append(fields, gf)
+					unknownFields = append(unknownFields, gf)
 				}
 
 			} else {
 
 				gf := NewGogenField(getSel(result.Type), result.Type)
 				gm.Params = append(gm.Params, gf)
-				fields = append(fields, gf)
+				unknownFields = append(unknownFields, gf)
 
 			}
 
 		}
 	}
-}
-
-func traceType(packagePath string, interfaceTargetName string, collectedType map[FieldType]*TypeProperties, afterFound func(typeSpec *ast.TypeSpec, astFile *ast.File) error) error {
-
-	LogDebug(0, "from path %v try to find interface with name %v", packagePath, interfaceTargetName)
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
-	if err != nil {
-		return err
-	}
-
-	for _, pkg := range pkgs {
-
-		packageName := PackageName(pkg.Name)
-
-		LogDebug(1, "package %s", packageName)
-
-		for _, astFile := range pkg.Files {
-
-			if err != nil {
-				LogDebug(2, "ignore everything since we are done or has an err")
-				return err
-			}
-
-			ast.Inspect(astFile, func(node ast.Node) bool {
-
-				if err != nil {
-					LogDebug(3, "ignore everything since we have err : %v", err.Error())
-					return false
-				}
-
-				typeSpec, ok := node.(*ast.TypeSpec)
-				if !ok {
-					return true
-				}
-				typeSpecName := typeSpec.Name.String()
-
-				if typeSpecName != interfaceTargetName {
-
-					tp := TypeProperties{
-						File:     astFile,
-						TypeSpec: typeSpec,
-					}
-
-					collectedType[FieldType(typeSpecName)] = &tp
-
-					LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
-					return false
-				}
-
-				LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(astFile.Package).Name())
-
-				err = afterFound(typeSpec, astFile)
-				if err != nil {
-					return false
-				}
-
-				return true
-			})
-
-		}
-
-	}
-	return nil
 }
 
 func getSel(expr ast.Expr) string {
@@ -461,16 +480,59 @@ func getSel(expr ast.Expr) string {
 	return ""
 }
 
-func NewGogenField(name string, expr ast.Expr) *GogenField {
+func PrintGogenInterface(level int, gft *GogenInterface) {
+	if gft.InterfaceType != nil {
 
-	return &GogenField{
-		Name: GogenFieldName(name),
-		DataType: &GogenFieldType{
-			Name:         FieldType(getTypeAsString(expr)),
-			Expr:         expr,
-			DefaultValue: "",
-			File:         nil,
-		},
+		LogDebug(level, "GogenType %s", gft.InterfaceType.Name)
+
+		for _, v := range gft.Interfaces {
+			PrintGogenInterface(level+1, v)
+		}
+		for _, v := range gft.Methods {
+			LogDebug(level+1, "Method %s", v.Name)
+		}
 	}
+}
+
+func LogDebug(identationLevel int, format string, args ...any) {
+	x := fmt.Sprintf("%%%ds", identationLevel*2)
+	y := fmt.Sprintf(x, "")
+	fmt.Printf(y+format+"\n", args...)
+}
+
+func PrintAllMethod(gi *GogenInterface) []*GogenMethod {
+	return traceMethod(gi, make([]*GogenMethod, 0, 5))
+}
+
+func traceMethod(gi *GogenInterface, gms []*GogenMethod) []*GogenMethod {
+
+	for _, m := range gi.Methods {
+		gms = AppendGogenMethod(gms, m)
+	}
+
+	for _, f := range gi.Interfaces {
+		gms = traceMethod(f, gms)
+	}
+
+	return gms
+}
+
+func AppendGogenMethod(gms []*GogenMethod, gm *GogenMethod) []*GogenMethod {
+
+	lenGMS := len(gms)
+
+	if lenGMS == cap(gms) {
+
+		newSlice := make([]*GogenMethod, lenGMS, 2*lenGMS+1)
+
+		LogDebug(2, "dipanjangin, tadinya %d skg %d", lenGMS, cap(newSlice))
+
+		copy(newSlice, gms)
+
+		return append(newSlice, gm)
+
+	}
+
+	return append(gms, gm)
 
 }

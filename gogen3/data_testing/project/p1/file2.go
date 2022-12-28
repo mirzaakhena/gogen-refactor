@@ -10,11 +10,13 @@ type SaveTodoRepo interface {
 	SaveTodo(x int)
 }
 
+type AnAlias Other
+
 type MyInterfaceInFile2 interface {
-	Other
+	AnAlias
 	MethodOne(x int, y string) (bool, error)
-	//BeforeTargetSameFileSamePackage
-	//AfterTargetSameFileSamePackage
+	BeforeTargetSameFileSamePackage
+	AfterTargetSameFileSamePackage
 }
 
 type AfterTargetSameFileSamePackage interface {
