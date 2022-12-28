@@ -1,4 +1,4 @@
-package gogen3
+package gogen4
 
 import (
 	"fmt"
@@ -12,14 +12,12 @@ import (
 	"strings"
 )
 
-func traceGeneralType(packagePath string, targetTypeName string) (*GogenFieldType, error) {
-
-	var gft *GogenFieldType
+func traceGeneralType(packagePath string, targetTypeName string, collectedType map[FieldType]*TypeProperties, afterFound func(tp TypeProperties) error) error {
 
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, pkg := range pkgs {
@@ -28,79 +26,7 @@ func traceGeneralType(packagePath string, targetTypeName string) (*GogenFieldTyp
 
 			if err != nil {
 				LogDebug(2, "ignore everything since we are done or has an err")
-				return nil, err
-			}
-
-			ast.Inspect(astFile, func(node ast.Node) bool {
-
-				if err != nil {
-					LogDebug(3, "ignore everything since we have err : %v", err.Error())
-					return false
-				}
-
-				typeSpec, ok := node.(*ast.TypeSpec)
-				if !ok {
-					return true
-				}
-
-				typeSpecName := typeSpec.Name.String()
-
-				if typeSpecName != targetTypeName {
-					LogDebug(3, "Not Expected Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
-					return false
-				}
-
-				LogDebug(3, "Found Target Type %s in %v!!!", targetTypeName, fset.File(astFile.Package).Name())
-
-				gft = &GogenFieldType{
-					Name:         FieldType(targetTypeName),
-					Expr:         typeSpec.Type,
-					DefaultValue: "",
-					File:         astFile,
-				}
-
-				return true
-			})
-
-		}
-
-	}
-
-	if gft == nil {
-		return nil, fmt.Errorf("target type %v not found", targetTypeName)
-	}
-
-	return gft, nil
-}
-
-func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, interfaceTargetName string) (*GogenInterface, error) {
-
-	gogenInterfaceTarget := NewGogenInterface()
-
-	unknownInterfaces := map[FieldType]*GogenInterface{}
-
-	unknownFields := map[FieldMethodSignature]*GogenField{}
-
-	collectedType := map[FieldType]*TypeProperties{}
-
-	LogDebug(0, "from path %v try to find interface with name %v", packagePath, interfaceTargetName)
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pkg := range pkgs {
-
-		packageName := PackageName(pkg.Name)
-
-		LogDebug(1, "package %s", packageName)
-
-		for _, astFile := range pkg.Files {
-
-			if err != nil {
-				LogDebug(2, "ignore everything since we are done or has an err")
-				return nil, err
+				return err
 			}
 
 			ast.Inspect(astFile, func(node ast.Node) bool {
@@ -122,18 +48,18 @@ func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, in
 					TypeSpec: typeSpec,
 				}
 
-				collectedType[FieldType(typeSpecName)] = &tp
+				if collectedType != nil {
+					collectedType[FieldType(typeSpecName)] = &tp
+				}
 
-				if typeSpecName != interfaceTargetName {
-
-					LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
-
+				if typeSpecName != targetTypeName {
+					LogDebug(3, "Not Expected Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
 					return false
 				}
 
-				LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(astFile.Package).Name())
+				LogDebug(3, "Found Target Type %s in %v!!!", targetTypeName, fset.File(astFile.Package).Name())
 
-				err = handleGogenInterface(gogenInterfaceTarget, unknownInterfaces, unknownFields, &tp, gomodProperties)
+				err = afterFound(tp)
 				if err != nil {
 					return false
 				}
@@ -145,15 +71,158 @@ func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, in
 
 	}
 
+	return nil
+}
+
+//func traceGeneralType(packagePath string, targetTypeName string) (*GogenFieldType, error) {
+//
+//	var gft *GogenFieldType
+//
+//	fset := token.NewFileSet()
+//	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for _, pkg := range pkgs {
+//
+//		for _, astFile := range pkg.Files {
+//
+//			if err != nil {
+//				LogDebug(2, "ignore everything since we are done or has an err")
+//				return nil, err
+//			}
+//
+//			ast.Inspect(astFile, func(node ast.Node) bool {
+//
+//				if err != nil {
+//					LogDebug(3, "ignore everything since we have err : %v", err.Error())
+//					return false
+//				}
+//
+//				typeSpec, ok := node.(*ast.TypeSpec)
+//				if !ok {
+//					return true
+//				}
+//
+//				typeSpecName := typeSpec.Name.String()
+//
+//				if typeSpecName != targetTypeName {
+//					LogDebug(3, "Not Expected Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
+//					return false
+//				}
+//
+//				LogDebug(3, "Found Target Type %s in %v!!!", targetTypeName, fset.File(astFile.Package).Name())
+//
+//				gft = &GogenFieldType{
+//					Name:         FieldType(targetTypeName),
+//					Expr:         typeSpec.Type,
+//					DefaultValue: "",
+//					File:         astFile,
+//				}
+//
+//				return true
+//			})
+//
+//		}
+//
+//	}
+//
+//	if gft == nil {
+//		return nil, fmt.Errorf("target type %v not found", targetTypeName)
+//	}
+//
+//	return gft, nil
+//}
+
+func (g *GogenInterfaceBuilder) traceInterfaceType(packagePath string, interfaceTargetName string) (*GogenInterface, error) {
+
+	gogenInterfaceTarget := NewGogenInterface()
+
+	unknownInterfaces := map[FieldType]*GogenInterface{}
+
+	unknownFields := map[FieldMethodSignature]*GogenField{}
+
+	collectedType := map[FieldType]*TypeProperties{}
+
+	err := traceGeneralType(packagePath, interfaceTargetName, collectedType, func(tp TypeProperties) error {
+		return g.handleGogenInterface(gogenInterfaceTarget, unknownInterfaces, unknownFields, &tp)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	//LogDebug(0, "from path %v try to find interface with name %v", packagePath, interfaceTargetName)
+	//fset := token.NewFileSet()
+	//pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//for _, pkg := range pkgs {
+	//
+	//	packageName := PackageName(pkg.Name)
+	//
+	//	LogDebug(1, "package %s", packageName)
+	//
+	//	for _, astFile := range pkg.Files {
+	//
+	//		if err != nil {
+	//			LogDebug(2, "ignore everything since we are done or has an err")
+	//			return nil, err
+	//		}
+	//
+	//		ast.Inspect(astFile, func(node ast.Node) bool {
+	//
+	//			if err != nil {
+	//				LogDebug(3, "ignore everything since we have err : %v", err.Error())
+	//				return false
+	//			}
+	//
+	//			typeSpec, ok := node.(*ast.TypeSpec)
+	//			if !ok {
+	//				return true
+	//			}
+	//
+	//			typeSpecName := typeSpec.Name.String()
+	//
+	//			tp := TypeProperties{
+	//				AstFile:  astFile,
+	//				TypeSpec: typeSpec,
+	//			}
+	//
+	//			collectedType[FieldType(typeSpecName)] = &tp
+	//
+	//			if typeSpecName != interfaceTargetName {
+	//
+	//				LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
+	//
+	//				return false
+	//			}
+	//
+	//			LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(astFile.Package).Name())
+	//
+	//			err = g.handleGogenInterface(gogenInterfaceTarget, unknownInterfaces, unknownFields, &tp)
+	//			if err != nil {
+	//				return false
+	//			}
+	//
+	//			return true
+	//		})
+	//
+	//	}
+	//
+	//}
+
 	// solve all unknown interfaces
-	for fieldType, unknownInterface := range unknownInterfaces {
+	for fieldType, theInterface := range unknownInterfaces {
 
 		typeProperties, exist := collectedType[fieldType]
 		if !exist {
 			return nil, fmt.Errorf("field type %v is not exist anywhere", fieldType)
 		}
 
-		err = handleGogenInterface(unknownInterface, unknownInterfaces, unknownFields, typeProperties, gomodProperties)
+		err = g.handleGogenInterface(theInterface, unknownInterfaces, unknownFields, typeProperties)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +233,7 @@ func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, in
 
 	// solve all unknown fields
 	for _, uf := range unknownFields {
-		uf.DataType.DefaultValue, err = handleDefaultValue(uf, uf.DataType.Expr, uf.DataType.File, gomodProperties)
+		uf.DataType.DefaultValue, err = g.handleDefaultValue(uf, uf.DataType.Expr, uf.DataType.File)
 		if err != nil {
 			return nil, err
 		}
@@ -173,13 +242,13 @@ func traceInterfaceType(packagePath string, gomodProperties *GoModProperties, in
 	return gogenInterfaceTarget, nil
 }
 
-func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodProperties *GoModProperties) (string, error) {
+func (g *GogenInterfaceBuilder) handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File) (string, error) {
 
 	switch exprType := expr.(type) {
 	case *ast.Ident:
 
 		if exprType.Obj != nil {
-			return handleDefaultValue(gf, exprType.Obj.Decl.(*ast.TypeSpec).Type, astFile, gomodProperties)
+			return g.handleDefaultValue(gf, exprType.Obj.Decl.(*ast.TypeSpec).Type, astFile)
 		}
 
 		basicDefaultValue := ""
@@ -236,7 +305,7 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 
 	case *ast.SelectorExpr:
 
-		importInFile, err := handleImport(astFile.Imports, gomodProperties)
+		importInFile, err := g.handleImport(astFile.Imports)
 		if err != nil {
 			return "", err
 		}
@@ -255,12 +324,25 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 			return string(gf.Name), nil
 		}
 
-		gft, err := traceGeneralType(interfacePath, exprType.Sel.String())
+		var gft GogenFieldType
+
+		err = traceGeneralType(interfacePath, exprType.Sel.String(), nil, func(tp TypeProperties) error {
+
+			gft = GogenFieldType{
+				Name:         FieldType(exprType.Sel.String()),
+				Expr:         tp.TypeSpec.Type,
+				DefaultValue: "",
+				File:         astFile,
+			}
+
+			return nil
+
+		})
 		if err != nil {
 			return "", err
 		}
 
-		result, err := handleDefaultValue(gf, gft.Expr, astFile, gomodProperties)
+		result, err := g.handleDefaultValue(gf, gft.Expr, astFile)
 		if err != nil {
 			return "", err
 		}
@@ -288,7 +370,7 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 
 }
 
-func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, typeProperties *TypeProperties, gomodProperties *GoModProperties) error {
+func (g *GogenInterfaceBuilder) handleGogenInterface(gi *GogenInterface, unknownInterfaces map[FieldType]*GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, typeProperties *TypeProperties) error {
 
 	gi.InterfaceType = &GogenFieldType{
 		Name:         FieldType(typeProperties.TypeSpec.Name.String()),
@@ -306,19 +388,19 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 			switch methodType := method.Type.(type) {
 
 			case *ast.FuncType:
-				err := handleDirectInlineMethod(gi, method, unknownFields)
+				err := g.handleDirectInlineMethod(gi, unknownFields, method)
 				if err != nil {
 					return err
 				}
 
 			case *ast.Ident:
-				err := handleIdent(gi, gomodProperties, unknownInterface, unknownFields, typeProperties, methodType)
+				err := g.handleIdent(gi, unknownInterfaces, unknownFields, typeProperties, methodType)
 				if err != nil {
 					return err
 				}
 
 			case *ast.SelectorExpr:
-				err := handleSelector(gi, gomodProperties, typeProperties, methodType)
+				err := g.handleSelector(gi, typeProperties, methodType)
 				if err != nil {
 					return err
 				}
@@ -332,7 +414,7 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 
 	case *ast.Ident:
 
-		err := handleIdent(gi, gomodProperties, unknownInterface, unknownFields, typeProperties, ts)
+		err := g.handleIdent(gi, unknownInterfaces, unknownFields, typeProperties, ts)
 		if err != nil {
 			return err
 		}
@@ -345,14 +427,14 @@ func handleGogenInterface(gi *GogenInterface, unknownInterface map[FieldType]*Go
 	return nil
 }
 
-func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typeProperties *TypeProperties, methodType *ast.SelectorExpr) error {
+func (g *GogenInterfaceBuilder) handleSelector(gi *GogenInterface, typeProperties *TypeProperties, methodType *ast.SelectorExpr) error {
 
 	//interfacePath, err := getPathFromSelector(typeProperties.AstFile, gomodProperties, methodType)
 	//if err != nil {
 	//	return err
 	//}
 
-	importInFile, err := handleImport(typeProperties.AstFile.Imports, gomodProperties)
+	importInFile, err := g.handleImport(typeProperties.AstFile.Imports)
 	if err != nil {
 		return err
 	}
@@ -361,7 +443,7 @@ func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typePr
 
 	interfacePath := string(importInFile[theX].CompletePath)
 
-	internalGi, err := traceInterfaceType(interfacePath, gomodProperties, methodType.Sel.String())
+	internalGi, err := g.traceInterfaceType(interfacePath, methodType.Sel.String())
 	if err != nil {
 		return err
 	}
@@ -371,7 +453,7 @@ func handleSelector(gi *GogenInterface, gomodProperties *GoModProperties, typePr
 	return nil
 }
 
-func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownInterface map[FieldType]*GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, typeProperties *TypeProperties, methodType *ast.Ident) error {
+func (g *GogenInterfaceBuilder) handleIdent(gi *GogenInterface, unknownInterfaces map[FieldType]*GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, typeProperties *TypeProperties, methodType *ast.Ident) error {
 	internalGi := new(GogenInterface)
 	gi.Interfaces = append(gi.Interfaces, internalGi)
 
@@ -386,7 +468,7 @@ func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownIn
 			File:         typeProperties.AstFile,
 		}
 
-		unknownInterface[name] = internalGi
+		unknownInterfaces[name] = internalGi
 
 		LogDebug(3, "unknown %s", methodType.String())
 
@@ -403,7 +485,7 @@ func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownIn
 		TypeSpec: newTypeSpec,
 	}
 
-	err := handleGogenInterface(internalGi, unknownInterface, unknownFields, &newTp, gomodProperties)
+	err := g.handleGogenInterface(internalGi, unknownInterfaces, unknownFields, &newTp)
 	if err != nil {
 		return err
 	}
@@ -411,7 +493,7 @@ func handleIdent(gi *GogenInterface, gomodProperties *GoModProperties, unknownIn
 	return nil
 }
 
-func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModProperties) (map[Expression]*GogenImport, error) {
+func (g *GogenInterfaceBuilder) handleImport(importSpecs []*ast.ImportSpec) (map[Expression]*GogenImport, error) {
 
 	importInFile := map[Expression]*GogenImport{}
 
@@ -421,7 +503,7 @@ func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModPropertie
 
 		LogDebug(4, "read package with path %s", importPath)
 
-		version, exist := gomodProperties.RequirePath[importPath]
+		version, exist := g.GoModProperties.RequirePath[importPath]
 		if exist {
 
 			completePath := AbsolutePath(fmt.Sprintf("%v/pkg/mod/%v@%v", build.Default.GOPATH, importPath, version))
@@ -458,11 +540,11 @@ func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModPropertie
 
 		}
 
-		if strings.HasPrefix(string(importPath), gomodProperties.ModuleName) {
+		if strings.HasPrefix(string(importPath), g.GoModProperties.ModuleName) {
 
 			path := importPath[strings.LastIndex(string(importPath), "/")+1:]
 
-			completePathStr := filepath.Join(gomodProperties.AbsolutePathProject, string(path))
+			completePathStr := filepath.Join(g.GoModProperties.AbsolutePathProject, string(path))
 
 			pkgs, err := parser.ParseDir(token.NewFileSet(), completePathStr, nil, parser.PackageClauseOnly)
 			if err != nil {
@@ -524,54 +606,50 @@ func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModPropertie
 	return importInFile, nil
 }
 
-func handleGoMod(goModFilePath string) (*GoModProperties, error) {
+func (g *GogenInterfaceBuilder) handleGoMod(goModFilePath string) error {
 
-	gm := GoModProperties{
-		RequirePath: map[ImportPath]Version{},
-	}
+	//gm := GoModProperties{
+	//	RequirePath: map[ImportPath]Version{},
+	//}
 
 	cleanPath := filepath.Clean(goModFilePath)
 
 	absoluteGomodPath, err := filepath.Abs(cleanPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	gm.AbsolutePathProject = absoluteGomodPath[:strings.LastIndex(absoluteGomodPath, filepath.Base(goModFilePath))]
+	g.GoModProperties.AbsolutePathProject = absoluteGomodPath[:strings.LastIndex(absoluteGomodPath, filepath.Base(goModFilePath))]
 
-	LogDebug(0, "absolute path project path : %s", gm.AbsolutePathProject)
+	LogDebug(0, "absolute path project path : %s", g.GoModProperties.AbsolutePathProject)
 
 	dataInBytes, err := os.ReadFile(goModFilePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	parsedGoMod, err := modfile.Parse(goModFilePath, dataInBytes, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	//var moduleName string
 	if len(parsedGoMod.Module.Syntax.Token) >= 2 {
-		gm.ModuleName = parsedGoMod.Module.Syntax.Token[1]
+		g.GoModProperties.ModuleName = parsedGoMod.Module.Syntax.Token[1]
 	}
-	LogDebug(0, "we get the module name : %v", gm.ModuleName)
+	LogDebug(0, "we get the module name : %v", g.GoModProperties.ModuleName)
 
 	LogDebug(0, "read the require path in go.mod :")
-	//requirePath := map[ImportPath]Version{}
+
 	for _, req := range parsedGoMod.Require {
 		if len(req.Syntax.Token) == 1 {
-
-			gm.RequirePath[ImportPath(req.Syntax.Token[0])] = ""
-
-			//requirePath[ImportPath(req.Syntax.Token[0])] = ""
+			g.GoModProperties.RequirePath[ImportPath(req.Syntax.Token[0])] = ""
 			continue
 		}
 		if len(req.Syntax.Token) >= 2 {
 			ip := ImportPath(req.Syntax.Token[0])
 			v := Version(req.Syntax.Token[1])
-			//requirePath[ip] = v
-			gm.RequirePath[ip] = v
+			g.GoModProperties.RequirePath[ip] = v
 			LogDebug(1, "path %v, version %v", ip, v)
 			continue
 		}
@@ -579,10 +657,10 @@ func handleGoMod(goModFilePath string) (*GoModProperties, error) {
 
 	//return absolutePathProject, moduleName, requirePath, nil
 
-	return &gm, nil
+	return nil
 }
 
-func handleDirectInlineMethod(gi *GogenInterface, method *ast.Field, unknownFields map[FieldMethodSignature]*GogenField) error {
+func (g *GogenInterfaceBuilder) handleDirectInlineMethod(gi *GogenInterface, unknownFields map[FieldMethodSignature]*GogenField, method *ast.Field) error {
 
 	if method.Names == nil && len(method.Names) > 0 {
 		err := fmt.Errorf("method must have name")
@@ -605,12 +683,12 @@ func handleDirectInlineMethod(gi *GogenInterface, method *ast.Field, unknownFiel
 		return fmt.Errorf("somehow cannot convert to FuncType")
 	}
 
-	handleFuncParamResultType(methodType, gm, unknownFields, gi.InterfaceType.File)
+	g.handleFuncParamResultType(methodType, unknownFields, gm, gi.InterfaceType.File)
 
 	return nil
 }
 
-func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, unknownFields map[FieldMethodSignature]*GogenField, astFile *ast.File) {
+func (g *GogenInterfaceBuilder) handleFuncParamResultType(methodType *ast.FuncType, unknownFields map[FieldMethodSignature]*GogenField, gm *GogenMethod, astFile *ast.File) {
 
 	if methodType.Params.NumFields() > 0 {
 		for _, param := range methodType.Params.List {
