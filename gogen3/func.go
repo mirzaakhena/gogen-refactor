@@ -14,8 +14,6 @@ import (
 
 func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModProperties) (map[Expression]*GogenImport, error) {
 
-	LogDebug(1, ">>>>>>>>>>>>>>>>>>>>>>>>>>>> %v", importSpecs)
-
 	importInFile := map[Expression]*GogenImport{}
 
 	for _, importSpec := range importSpecs {
@@ -98,26 +96,30 @@ func handleImport(importSpecs []*ast.ImportSpec, gomodProperties *GoModPropertie
 			continue
 		}
 
-		name := ""
-		expr := Expression(importPath[strings.LastIndex(string(importPath), "/")+1:])
-		if importSpec.Name != nil {
-			name = importSpec.Name.String()
-			expr = Expression(name)
+		// others
+		{
+			name := ""
+			expr := Expression(importPath[strings.LastIndex(string(importPath), "/")+1:])
+			if importSpec.Name != nil {
+				name = importSpec.Name.String()
+				expr = Expression(name)
+			}
+
+			completePath := AbsolutePath(fmt.Sprintf("%s/src/%s", build.Default.GOROOT, expr))
+
+			gi := GogenImport{
+				Name:         name,
+				Path:         importPath,
+				Expression:   expr,
+				ImportType:   ImportTypeGoSDK,
+				CompletePath: completePath,
+			}
+
+			importInFile[expr] = &gi
+
+			LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 		}
 
-		completePath := AbsolutePath(fmt.Sprintf("%s/src/%s", build.Default.GOROOT, expr))
-
-		gi := GogenImport{
-			Name:         name,
-			Path:         importPath,
-			Expression:   expr,
-			ImportType:   ImportTypeGoSDK,
-			CompletePath: completePath,
-		}
-
-		importInFile[expr] = &gi
-
-		LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 	}
 
 	return importInFile, nil
@@ -378,7 +380,7 @@ func handleFuncParamResultType(methodType *ast.FuncType, gm *GogenMethod, fields
 	}
 }
 
-func traceType(packagePath string, interfaceTargetName string, collectedType map[FieldType]*TypeProperties, afterFound func(tp *TypeProperties) error) error {
+func traceType(packagePath string, interfaceTargetName string, collectedType map[FieldType]*TypeProperties, afterFound func(typeSpec *ast.TypeSpec, astFile *ast.File) error) error {
 
 	LogDebug(0, "from path %v try to find interface with name %v", packagePath, interfaceTargetName)
 	fset := token.NewFileSet()
@@ -393,14 +395,14 @@ func traceType(packagePath string, interfaceTargetName string, collectedType map
 
 		LogDebug(1, "package %s", packageName)
 
-		for _, file := range pkg.Files {
+		for _, astFile := range pkg.Files {
 
 			if err != nil {
 				LogDebug(2, "ignore everything since we are done or has an err")
 				return err
 			}
 
-			ast.Inspect(file, func(node ast.Node) bool {
+			ast.Inspect(astFile, func(node ast.Node) bool {
 
 				if err != nil {
 					LogDebug(3, "ignore everything since we have err : %v", err.Error())
@@ -413,22 +415,22 @@ func traceType(packagePath string, interfaceTargetName string, collectedType map
 				}
 				typeSpecName := typeSpec.Name.String()
 
-				tp := TypeProperties{
-					File:     file,
-					TypeSpec: typeSpec,
-				}
-
-				collectedType[FieldType(typeSpecName)] = &tp
-
 				if typeSpecName != interfaceTargetName {
-					LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(file.Package).Name())
 
+					tp := TypeProperties{
+						File:     astFile,
+						TypeSpec: typeSpec,
+					}
+
+					collectedType[FieldType(typeSpecName)] = &tp
+
+					LogDebug(3, "Not Expected Interface Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
 					return false
 				}
 
-				LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(file.Package).Name())
+				LogDebug(3, "Found Interface Target Type %s in %v!!!", interfaceTargetName, fset.File(astFile.Package).Name())
 
-				err = afterFound(&tp)
+				err = afterFound(typeSpec, astFile)
 				if err != nil {
 					return false
 				}

@@ -12,15 +12,15 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 		return nil, err
 	}
 
-	gi := new(GogenInterface)
+	gogenInterfaceRoot := new(GogenInterface)
 
-	unknownInterface := map[FieldType]*GogenInterface{}
+	unknownInterfaces := map[FieldType]*GogenInterface{}
 
 	collectedType := map[FieldType]*TypeProperties{}
 
-	err = traceType(packagePath, interfaceTargetName, collectedType, func(tp *TypeProperties) error {
+	err = traceType(packagePath, interfaceTargetName, collectedType, func(typeSpec *ast.TypeSpec, astFile *ast.File) error {
 
-		err = handleGogenInterface(gi, unknownInterface, tp.TypeSpec, tp.File)
+		err = handleGogenInterface(gogenInterfaceRoot, unknownInterfaces, typeSpec, astFile)
 		if err != nil {
 			return err
 		}
@@ -31,15 +31,16 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 		return nil, err
 	}
 
-	for fieldType, uki := range unknownInterface {
+	// solve all unknown interface
+	for fieldType, unknownInterface := range unknownInterfaces {
 
 		tp, exist := collectedType[fieldType]
 		if !exist {
 
-			selectorExpr, ok := uki.InterfaceType.Expr.(*ast.SelectorExpr)
+			selectorExpr, ok := unknownInterface.InterfaceType.Expr.(*ast.SelectorExpr)
 			if ok {
 
-				importInFile, err := handleImport(uki.InterfaceType.File.Imports, gomodProperties)
+				importInFile, err := handleImport(unknownInterface.InterfaceType.File.Imports, gomodProperties)
 				if err != nil {
 					return nil, err
 				}
@@ -47,9 +48,9 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 				theX := Expression(selectorExpr.X.(*ast.Ident).String())
 				gogenImport := importInFile[theX]
 
-				err = traceType(string(gogenImport.CompletePath), selectorExpr.Sel.String(), collectedType, func(tp *TypeProperties) error {
+				err = traceType(string(gogenImport.CompletePath), selectorExpr.Sel.String(), collectedType, func(typeSpec *ast.TypeSpec, astFile *ast.File) error {
 
-					err := handleGogenInterface(uki, unknownInterface, tp.TypeSpec, tp.File)
+					err := handleGogenInterface(unknownInterface, unknownInterfaces, typeSpec, astFile)
 					if err != nil {
 						return err
 					}
@@ -61,7 +62,7 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 					return nil, err
 				}
 
-				delete(unknownInterface, fieldType)
+				delete(unknownInterfaces, fieldType)
 
 				continue
 			}
@@ -69,16 +70,16 @@ func NewGogenInterface(packagePath, goModFilePath, interfaceTargetName string) (
 			return nil, fmt.Errorf("field type %v is not exist anywhere", fieldType)
 		}
 
-		err = handleGogenInterface(uki, unknownInterface, tp.TypeSpec, tp.File)
+		err = handleGogenInterface(unknownInterface, unknownInterfaces, tp.TypeSpec, tp.File)
 		if err != nil {
 			return nil, err
 		}
 
-		delete(unknownInterface, fieldType)
+		delete(unknownInterfaces, fieldType)
 
 	}
 
-	PrintGogenInteface(0, gi)
+	PrintGogenInteface(0, gogenInterfaceRoot)
 
-	return gi, nil
+	return gogenInterfaceRoot, nil
 }
