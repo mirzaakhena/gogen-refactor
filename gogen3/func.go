@@ -252,6 +252,7 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 
 		interfacePath := string(importInFile[theX].CompletePath)
 
+		// TODO hardcoded for context temporary
 		if importInFile[theX].Path == "context" {
 			return string(gf.Name), nil
 		}
@@ -267,10 +268,6 @@ func handleDefaultValue(gf *GogenField, expr ast.Expr, astFile *ast.File, gomodP
 		}
 
 		return result, nil
-
-		//return fmt.Sprintf("%s.%s", exprType.X.(*ast.Ident).String(), result), nil
-
-		//return fmt.Sprintf("%s.%s", exprType.X.(*ast.Ident).String(), exprType.Sel.String())
 
 	case *ast.StarExpr:
 		return "nil", nil

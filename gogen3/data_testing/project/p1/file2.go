@@ -2,14 +2,13 @@ package p1
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 )
 
 type BeforeTargetSameFileSamePackage interface {
-	BeforeTargetSameFileSamePackageMethod(ctx context.Context, aaa gin.RouterGroup)
+	BeforeTargetSameFileSamePackageMethod(ctx context.Context, aaa SomeStruct)
 }
 
-type SomeStruct struct{}
+type SomeStruct int
 
 type SaveTodoRepo interface {
 	SaveTodo(x int)
