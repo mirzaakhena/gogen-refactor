@@ -149,7 +149,7 @@ func (gsb *GogenInterfaceBuilder) handleMethodInterface(typeSpecName FieldType, 
 			// sudah pasti ada di package yg berbeda yang akan kita telusuri nanti
 			// method Type disini sudah pasti selector,
 			// tapi kita belum tahu Selectornya type apa, masukin aj dulu nanti akan kita cek.
-			//gsb.unknownInterface[FieldType(m)] = methodType
+			//gsb.unknownInterface[GogenFieldType(m)] = methodType
 
 		default:
 			return fmt.Errorf("unsupported type %v", methodType)

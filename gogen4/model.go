@@ -6,19 +6,31 @@ import (
 )
 
 type (
-	GogenMethodName      string
-	GogenInterfaceName   string
-	GogenFieldName       string
-	FieldType            string
-	PackageName          string
-	ImportType           string
-	ImportPath           string
-	ImportName           string
-	AbsolutePath         string
-	Expression           string
-	Version              string
-	FieldMethodSignature string
+	GogenMethodName    string
+	GogenInterfaceName string
+	GogenFieldName     string
+	FieldType          string
+	PackageName        string
+	ImportType         string
+	ImportPath         string
+	ImportName         string
+	AbsolutePath       string
+	Expression         string
+	Version            string
+	FieldSignature     string
 )
+
+func (r FieldType) String() string {
+	return string(r)
+}
+
+func (r GogenMethodName) String() string {
+	return string(r)
+}
+
+func (r GogenFieldName) String() string {
+	return string(r)
+}
 
 const (
 	ImportTypeGoSDK           ImportType = "GO_SDK"
@@ -52,11 +64,18 @@ type GogenMethod struct {
 	Results []*GogenField   `json:"results,omitempty"`
 }
 
-type GogenInterface struct {
-	//CurrentPackage *PackageName
-	InterfaceType *GogenFieldType   `json:"interfaceType,omitempty"`
-	Interfaces    []*GogenInterface `json:"interfaces,omitempty"`
-	Methods       []*GogenMethod    `json:"methods,omitempty"`
+//type GogenStruct struct {
+//	StructType *GogenFieldType `json:"structType,omitempty"`
+//	Types      []*GogenStruct  `json:"types,omitempty"`
+//	Fields     []*GogenField   `json:"fields,omitempty"`
+//	Methods    []*GogenMethod  `json:"methods,omitempty"`
+//}
+
+type GogenAnyType struct {
+	GogenFieldType   *GogenFieldType `json:"fieldType,omitempty"`
+	CompositionTypes []*GogenAnyType `json:"compositionTypes,omitempty"`
+	Fields           []*GogenField   `json:"fields,omitempty"`
+	Methods          []*GogenMethod  `json:"methods,omitempty"`
 }
 
 type TypeProperties struct {
@@ -101,14 +120,15 @@ func NewGoModProperties() GoModProperties {
 	}
 }
 
-func NewGogenInterface() *GogenInterface {
-	return &GogenInterface{
-		InterfaceType: nil,
-		Interfaces:    make([]*GogenInterface, 0),
-		Methods:       make([]*GogenMethod, 0),
+func NewGogenAnyType() *GogenAnyType {
+	return &GogenAnyType{
+		GogenFieldType:   nil,
+		CompositionTypes: make([]*GogenAnyType, 0),
+		Methods:          make([]*GogenMethod, 0),
+		Fields:           make([]*GogenField, 0),
 	}
 }
 
-func NewFieldMethodSignature(m GogenMethodName, f GogenFieldName) FieldMethodSignature {
-	return FieldMethodSignature(fmt.Sprintf("%v.%v", m, f))
+func NewFieldSignature(m string, f string) FieldSignature {
+	return FieldSignature(fmt.Sprintf("%v.%v", m, f))
 }

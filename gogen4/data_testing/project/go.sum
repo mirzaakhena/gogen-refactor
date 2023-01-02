@@ -38,6 +38,8 @@ github.com/mattn/go-isatty v0.0.16 h1:bq3VjFmv/sOjHtdEhmkEV4x1AJtvUvOJ2PFAZ5+peK
 github.com/mattn/go-isatty v0.0.16/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
 github.com/mirzaakhena/gogen v0.0.1 h1:t6H43SsPwGwtLCrVOnhtm04lCab1faSBaZfKCMHBJOA=
 github.com/mirzaakhena/gogen v0.0.1/go.mod h1:YH/SuC0qJZ3p3/hIx7M6hTTEEXzvhKGFI/WY1QBChQQ=
+github.com/mirzaakhena/gogen v0.0.2 h1:bf7GL78cSLimcrt02xig/02q2JFsk9ZYGyoc3COHkI8=
+github.com/mirzaakhena/gogen v0.0.2/go.mod h1:YH/SuC0qJZ3p3/hIx7M6hTTEEXzvhKGFI/WY1QBChQQ=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
