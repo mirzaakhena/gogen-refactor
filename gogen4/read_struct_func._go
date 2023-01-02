@@ -84,18 +84,18 @@ func (g *GogenStructBuilder) traceStructType(packagePath string, structTargetNam
 
 func (g *GogenStructBuilder) handleGogenStruct(gi *GogenAnyType, unknownStructs map[FieldType]*GogenAnyType, unknownFields map[FieldSignature]*GogenFieldType, collectedType map[FieldType]*TypeProperties, typeProperties *TypeProperties) error {
 
+	typeSpecName := FieldType(typeProperties.TypeSpec.Name.String())
+
+	gi.GogenFieldType = &GogenFieldType{
+		Name:         typeSpecName,
+		Expr:         typeProperties.TypeSpec.Type,
+		DefaultValue: fmt.Sprintf("%s{}", typeSpecName),
+		File:         typeProperties.AstFile,
+	}
+
 	switch ts := typeProperties.TypeSpec.Type.(type) {
 
 	case *ast.StructType:
-
-		typeSpecName := FieldType(typeProperties.TypeSpec.Name.String())
-
-		gi.GogenFieldType = &GogenFieldType{
-			Name:         typeSpecName,
-			Expr:         typeProperties.TypeSpec.Type,
-			DefaultValue: fmt.Sprintf("%s{}", typeSpecName),
-			File:         typeProperties.AstFile,
-		}
 
 		for _, field := range ts.Fields.List {
 

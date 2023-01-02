@@ -7,7 +7,7 @@ import (
 
 func TestCase101(t *testing.T) {
 
-	gi := NewGogenStructBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t101/p1", "./data_testing/project/go.mod", "MyStruct1")
 
 	assert.Nil(t, err)
@@ -18,7 +18,7 @@ func TestCase101(t *testing.T) {
 
 func TestCase102(t *testing.T) {
 
-	gi := NewGogenStructBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t102/p1", "./data_testing/project/go.mod", "MyStruct1")
 
 	assert.Nil(t, err)
@@ -51,7 +51,7 @@ func TestCase102(t *testing.T) {
 
 func TestCase103(t *testing.T) {
 
-	gi := NewGogenStructBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t103/p1", "./data_testing/project/go.mod", "MyStruct1")
 
 	assert.Nil(t, err)
@@ -72,7 +72,7 @@ func TestCase103(t *testing.T) {
 
 func TestCase104(t *testing.T) {
 
-	gi := NewGogenStructBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t104/p1", "./data_testing/project/go.mod", "MyStruct1")
 
 	assert.Nil(t, err)
@@ -105,7 +105,7 @@ func TestCase104(t *testing.T) {
 
 func TestCase105(t *testing.T) {
 
-	gi := NewGogenStructBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t105/p1", "./data_testing/project/go.mod", "MyStruct1")
 
 	assert.Nil(t, err)

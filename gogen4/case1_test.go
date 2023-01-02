@@ -7,7 +7,7 @@ import (
 
 func TestCase001(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t001/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -19,7 +19,7 @@ func TestCase001(t *testing.T) {
 
 func TestCase002(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t002/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -87,7 +87,7 @@ func TestCase002(t *testing.T) {
 
 func TestCase012(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t012/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -110,7 +110,7 @@ func TestCase012(t *testing.T) {
 
 func TestCase003(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t003/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -135,7 +135,7 @@ func TestCase003(t *testing.T) {
 
 func TestCase004(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t004/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -147,7 +147,7 @@ func TestCase004(t *testing.T) {
 
 func TestCase005(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t005/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 
@@ -171,7 +171,7 @@ func TestCase005(t *testing.T) {
 
 func TestCase006(t *testing.T) {
 
-	gi := NewGogenInterfaceBuilder()
+	gi := NewGogenAnyTypeBuilder()
 	actGi, err := gi.Build("./data_testing/project/t006/p1", "./data_testing/project/go.mod", "MyInterface1")
 	assert.Nil(t, err)
 

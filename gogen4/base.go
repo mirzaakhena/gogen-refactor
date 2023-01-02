@@ -110,7 +110,7 @@ func (g *GogenBase) handleDefaultValue(gf *GogenFieldType, expr ast.Expr, astFil
 
 		var gft GogenFieldType
 
-		err = traceGeneralType(interfacePath, exprType.Sel.String(), nil, func(tp TypeProperties) error {
+		err = findTargetType(interfacePath, exprType.Sel.String(), nil, func(tp TypeProperties) error {
 
 			gft = GogenFieldType{
 				Name:         FieldType(exprType.Sel.String()),
@@ -322,7 +322,7 @@ func (g *GogenBase) handleGoMod(goModFilePath string) error {
 	return nil
 }
 
-func traceGeneralType(packagePath string, targetTypeName string, collectedType map[FieldType]*TypeProperties, afterFound func(tp TypeProperties) error) error {
+func findTargetType(packagePath string, targetTypeName string, collectedType map[FieldType]*TypeProperties, afterFound func(tp TypeProperties) error) error {
 
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
