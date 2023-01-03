@@ -115,7 +115,7 @@ func (g *GogenBase) handleDefaultValue(gf *GogenFieldType, expr ast.Expr, astFil
 			gft = GogenFieldType{
 				Name:         FieldType(exprType.Sel.String()),
 				Expr:         tp.TypeSpec.Type,
-				DefaultValue: "",
+				DefaultValue: getTypeAsString(exprType),
 				File:         astFile,
 			}
 
@@ -162,7 +162,7 @@ func (g *GogenBase) handleImport(importSpecs []*ast.ImportSpec) (map[Expression]
 
 		importPath := ImportPath(strings.Trim(importSpec.Path.Value, `"`))
 
-		LogDebug(4, "read package with path %s", importPath)
+		//LogDebug(4, "read package with path %s", importPath)
 
 		version, exist := g.GoModProperties.RequirePath[importPath]
 		if exist {
@@ -193,7 +193,7 @@ func (g *GogenBase) handleImport(importSpecs []*ast.ImportSpec) (map[Expression]
 
 				importInFile[expr] = &gi
 
-				LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
+				//LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 
 			}
 
@@ -232,7 +232,7 @@ func (g *GogenBase) handleImport(importSpecs []*ast.ImportSpec) (map[Expression]
 
 				importInFile[expr] = &gi
 
-				LogDebug(5, "found %v in path %v as %s", expr, completePathStr, gi.ImportType)
+				//LogDebug(5, "found %v in path %v as %s", expr, completePathStr, gi.ImportType)
 
 			}
 
@@ -260,7 +260,7 @@ func (g *GogenBase) handleImport(importSpecs []*ast.ImportSpec) (map[Expression]
 
 			importInFile[expr] = &gi
 
-			LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
+			//LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 		}
 
 	}
@@ -283,7 +283,7 @@ func (g *GogenBase) handleGoMod(goModFilePath string) error {
 
 	g.GoModProperties.AbsolutePathProject = absoluteGomodPath[:strings.LastIndex(absoluteGomodPath, filepath.Base(goModFilePath))]
 
-	LogDebug(0, "absolute path project path : %s", g.GoModProperties.AbsolutePathProject)
+	//LogDebug(0, "absolute path project path : %s", g.GoModProperties.AbsolutePathProject)
 
 	dataInBytes, err := os.ReadFile(goModFilePath)
 	if err != nil {
@@ -299,9 +299,9 @@ func (g *GogenBase) handleGoMod(goModFilePath string) error {
 	if len(parsedGoMod.Module.Syntax.Token) >= 2 {
 		g.GoModProperties.ModuleName = parsedGoMod.Module.Syntax.Token[1]
 	}
-	LogDebug(0, "we get the module name : %v", g.GoModProperties.ModuleName)
+	//LogDebug(0, "we get the module name : %v", g.GoModProperties.ModuleName)
 
-	LogDebug(0, "read the require path in go.mod :")
+	//LogDebug(0, "read the require path in go.mod :")
 
 	for _, req := range parsedGoMod.Require {
 		if len(req.Syntax.Token) == 1 {
@@ -335,14 +335,14 @@ func findTargetType(packagePath string, targetTypeName string, collectedType map
 		for _, astFile := range pkg.Files {
 
 			if err != nil {
-				LogDebug(2, "ignore everything since we are done or has an err")
+				//LogDebug(2, "ignore everything since we are done or has an err")
 				return err
 			}
 
 			ast.Inspect(astFile, func(node ast.Node) bool {
 
 				if err != nil {
-					LogDebug(3, "ignore everything since we have err : %v", err.Error())
+					//LogDebug(3, "ignore everything since we have err : %v", err.Error())
 					return false
 				}
 
@@ -362,14 +362,14 @@ func findTargetType(packagePath string, targetTypeName string, collectedType map
 					collectedType[FieldType(typeSpecName)] = &tp
 				}
 
-				LogDebug(3, "%v == %v", typeSpecName, targetTypeName)
+				//LogDebug(3, "%v == %v", typeSpecName, targetTypeName)
 
 				if typeSpecName != targetTypeName {
-					LogDebug(3, "👎🏿 Not Expected Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
+					//LogDebug(3, "👎🏿 Not Expected Target Type. it is %s as %T in %v", typeSpecName, typeSpec.Type, fset.File(astFile.Package).Name())
 					return false
 				}
 
-				LogDebug(3, "🎉 Found Target Type %s in %v!!!", targetTypeName, fset.File(astFile.Package).Name())
+				//LogDebug(3, "🎉 Found Target Type %s in %v!!!", targetTypeName, fset.File(astFile.Package).Name())
 
 				err = afterFound(tp)
 				if err != nil {
@@ -442,6 +442,16 @@ func appendGogenMethod(gms []*GogenMethod, gm *GogenMethod) []*GogenMethod {
 }
 
 func PrintGogenAnyType(level int, gft *GogenAnyType) {
+
+	LogDebug(level, "===<<<<=============================================================")
+
+	printGogenAnyTypeLoop(level, gft)
+
+	LogDebug(level, "===>>>>=============================================================")
+
+}
+
+func printGogenAnyTypeLoop(level int, gft *GogenAnyType) {
 	if gft.GogenFieldType == nil {
 		return
 	}
@@ -449,7 +459,7 @@ func PrintGogenAnyType(level int, gft *GogenAnyType) {
 	LogDebug(level, "GogenType %s %v", gft.GogenFieldType.Name, gft.GogenFieldType.DefaultValue)
 
 	for _, v := range gft.CompositionTypes {
-		PrintGogenAnyType(level+1, v)
+		printGogenAnyTypeLoop(level+1, v)
 	}
 	for _, p := range gft.Fields {
 		LogDebug(level+1, "Field %s %s %s", p.Name, p.DataType.Name, p.DataType.DefaultValue)

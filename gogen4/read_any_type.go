@@ -85,9 +85,11 @@ func (g *GogenAnyTypeBuilder) handleGogenType(gi *GogenAnyType, unknownTypes map
 	gi.GogenFieldType = &GogenFieldType{
 		Name:         typeSpecName,
 		Expr:         typeProperties.TypeSpec.Type,
-		DefaultValue: "",
+		DefaultValue: "Hahahahaha",
 		File:         typeProperties.AstFile,
 	}
+
+	unknownFields[NewFieldSignature(gi.GogenFieldType.Name.String(), typeSpecName.String())] = gi.GogenFieldType
 
 	switch ts := typeProperties.TypeSpec.Type.(type) {
 
@@ -131,7 +133,7 @@ func (g *GogenAnyTypeBuilder) handleInterfaceField(gi *GogenAnyType, unknownType
 		File:         typeProperties.AstFile,
 	}
 
-	LogDebug(3, "as interface with name %s", gi.GogenFieldType.Name)
+	//LogDebug(3, "as interface with name %s", gi.GogenFieldType.Name)
 
 	for _, method := range ts.Methods.List {
 		switch methodType := method.Type.(type) {
@@ -191,21 +193,21 @@ func (g *GogenAnyTypeBuilder) handleField(gi *GogenAnyType, unknownTypes map[Fie
 	switch fieldType := field.(type) {
 
 	case *ast.Ident:
-		LogDebug(1, "===> as ident %v", fieldType)
+		//LogDebug(1, "===> as ident %v", fieldType)
 		err := g.handleIdent(gi, unknownTypes, unknownFields, typeProperties, fieldType, collectedType)
 		if err != nil {
 			return err
 		}
 
 	case *ast.StarExpr:
-		LogDebug(1, "===> as star %v", fieldType)
+		//LogDebug(1, "===> as star %v", fieldType)
 		err := g.handleField(gi, unknownTypes, unknownFields, collectedType, typeProperties, fieldType.X)
 		if err != nil {
 			return err
 		}
 
 	case *ast.SelectorExpr:
-		LogDebug(1, "===> as selector %v", fieldType)
+		//LogDebug(1, "===> as selector %v", fieldType)
 		err := g.handleSelector(gi, typeProperties, fieldType)
 		if err != nil {
 			return err
@@ -244,7 +246,7 @@ func (g *GogenAnyTypeBuilder) handleIdent(gi *GogenAnyType, unknownTypes map[Fie
 	newGi.GogenFieldType = &GogenFieldType{
 		Name:         fieldTypeName,
 		Expr:         fieldType,
-		DefaultValue: "",
+		DefaultValue: getTypeAsString(fieldType),
 		File:         nil,
 	}
 
@@ -302,7 +304,7 @@ func (g *GogenAnyTypeBuilder) handleInterfaceMethod(gi *GogenAnyType, unknownFie
 		return nil
 	}
 
-	LogDebug(4, "as function found method %s", methodName)
+	//LogDebug(4, "as function found method %s", methodName)
 
 	gm := newGogenMethod(methodName)
 
@@ -326,7 +328,7 @@ func (g *GogenAnyTypeBuilder) handleFuncParamResultType(methodType *ast.FuncType
 			fieldType := FieldType(getTypeAsString(param.Type))
 
 			if param.Names != nil {
-
+				LogDebug(1, ">>>>>>>>>>>>>> masuk sini fieldType %v", param.Type)
 				for _, n := range param.Names {
 					gf := NewGogenField(n.String(), param.Type, fieldType, astFile)
 					gm.Params = append(gm.Params, gf)

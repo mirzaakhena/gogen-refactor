@@ -13,7 +13,6 @@ func TestCase101(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, "MyStruct1", actGi.GogenFieldType.Name.String())
-
 }
 
 func TestCase102(t *testing.T) {
@@ -113,7 +112,7 @@ func TestCase105(t *testing.T) {
 	assert.Equal(t, "MyStruct1", actGi.GogenFieldType.Name.String())
 	assert.Equal(t, "Age", actGi.Fields[0].Name.String())
 
-	assert.Equal(t, 5, len(actGi.CompositionTypes))
+	assert.Equal(t, 6, len(actGi.CompositionTypes))
 
 	assert.Equal(t, "MyStruct2", actGi.CompositionTypes[0].GogenFieldType.Name.String())
 	assert.Equal(t, "Name", actGi.CompositionTypes[0].Fields[0].Name.String())
@@ -122,5 +121,6 @@ func TestCase105(t *testing.T) {
 	assert.Equal(t, "MyStruct4", actGi.CompositionTypes[2].GogenFieldType.Name.String())
 	assert.Equal(t, "MyStruct5", actGi.CompositionTypes[3].GogenFieldType.Name.String())
 	assert.Equal(t, "YourInterface", actGi.CompositionTypes[4].GogenFieldType.Name.String())
+	assert.Equal(t, "MyStruct6", actGi.CompositionTypes[5].GogenFieldType.Name.String())
 
 }
