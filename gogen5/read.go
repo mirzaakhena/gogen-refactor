@@ -58,7 +58,7 @@ func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *util.Gogen
 		switch nodeTypeSpec := node.(type) {
 		case *ast.TypeSpec:
 
-			//gd.collectedTypes[nodeTypeSpec.Name.String()] = nil
+			gd.collectedTypes[typeTargetName] = nil
 
 			util.LogDebug(1, ">>>>>0 %v, %v != %v", gat.Name, nodeTypeSpec.Name.String(), typeTargetName)
 
@@ -82,7 +82,7 @@ func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *util.Gogen
 	}
 
 	for k, ct := range gd.collectedTypes {
-		//util.LogDebug(1, ">>>>>2 %v %T", k, ct)
+		util.LogDebug(1, ">>>>>2 %v %T", k, ct)
 		_ = k
 		_ = ct
 	}
@@ -339,7 +339,9 @@ func (r gogenAnyTypeBuilder) handleIdent(gat *util.GogenAnyType, gd *gogenData, 
 
 	if fieldType.Obj == nil {
 
-		//util.LogDebug(1, ">>>>>1 unknown %v", fieldType.String())
+		util.LogDebug(1, ">>>>>1 collected %v", fieldType.String())
+
+		gd.collectedTypes[fieldType.String()] = nil
 
 		gd.unknownTypes[util.NewGogenFieldTypeName(fieldType)] = newGat
 
