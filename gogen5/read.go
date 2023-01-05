@@ -477,7 +477,7 @@ func (r gogenAnyTypeBuilder) handleStar(gat *GogenAnyType, gd *gogenData, starEx
 		}
 
 	case *ast.SelectorExpr:
-		
+
 		err := r.handleSelector(gat, newGat, x, astFile)
 		if err != nil {
 			return err
@@ -487,3 +487,4 @@ func (r gogenAnyTypeBuilder) handleStar(gat *GogenAnyType, gd *gogenData, starEx
 
 	return nil
 }
+

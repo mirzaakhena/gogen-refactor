@@ -1,6 +1,7 @@
 package gogen5
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -386,4 +387,73 @@ func LogDebug(identationLevel int, format string, args ...any) {
 	x := fmt.Sprintf("%%%ds", identationLevel*2)
 	y := fmt.Sprintf(x, "")
 	fmt.Printf(y+format+"\n", args...)
+}
+
+func WriteTest(gat *GogenAnyType, prefix string, param *bytes.Buffer) {
+
+	param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Name.String())\n", gat.Name, prefix))
+	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Methods))\n", len(gat.Methods), prefix))
+
+	param.WriteString("\n")
+
+	for iMethod, m := range gat.Methods {
+
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Methods[%d].Name.String())\n", m.Name.String(), prefix, iMethod))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Methods[%d].Params))\n", len(m.Params), prefix, iMethod))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Methods[%d].Results))\n", len(m.Results), prefix, iMethod))
+
+		param.WriteString("\n")
+
+		for iParam, p := range m.Params {
+			param.WriteString(fmt.Sprintf("assert.Equal(t, \"%v\", actGi%s.Methods[%d].Params[%d].Name.String())\n", p.Name.String(), prefix, iMethod, iParam))
+			param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Methods[%d].Params[%d].DataType.Name.String())\n", p.DataType.Name.String(), prefix, iMethod, iParam))
+			param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi%s.Methods[%d].Params[%d].DataType.DefaultValue)\n", p.DataType.DefaultValue, prefix, iMethod, iParam))
+			param.WriteString("\n")
+		}
+
+		param.WriteString("\n")
+
+		for iResult, r := range m.Results {
+			param.WriteString(fmt.Sprintf("assert.Equal(t, \"%v\", actGi%s.Methods[%d].Results[%d].Name.String())\n", r.Name.String(), prefix, iMethod, iResult))
+			param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Methods[%d].Results[%d].DataType.Name.String())\n", r.DataType.Name.String(), prefix, iMethod, iResult))
+			param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi%s.Methods[%d].Results[%d].DataType.DefaultValue)\n", r.DataType.DefaultValue, prefix, iMethod, iResult))
+			param.WriteString("\n")
+		}
+
+	}
+
+	param.WriteString("//\n")
+	param.WriteString("\n")
+
+	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Fields))\n", len(gat.Fields), prefix))
+	param.WriteString("\n")
+	for iField, f := range gat.Fields {
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Fields[%d].Name.String())\n", f.Name.String(), prefix, iField))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Fields[%d].DataType.Name.String())\n", f.DataType.Name, prefix, iField))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi%s.Fields[%d].DataType.DefaultValue)\n", f.DataType.DefaultValue, prefix, iField))
+		param.WriteString("\n")
+	}
+
+	param.WriteString("//\n")
+	param.WriteString("\n")
+
+	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Imports))\n", len(gat.Imports), prefix))
+	param.WriteString("\n")
+	for kImport, v := range gat.Imports {
+		param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi.Imports[\"%s\"].Name)\n", v.Name, kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].Expression.String())\n", v.Expression.String(), kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].Path.String())\n", v.Path.String(), kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].ImportType.String())\n", v.ImportType.String(), kImport.String()))
+		param.WriteString("\n")
+	}
+
+	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.CompositionTypes))\n", len(gat.CompositionTypes), prefix))
+
+	//for _, v := range gft.CompositionTypes {
+	//	x.printGogenAnyTypeLoop(level+1, v)
+	//}
+	//for _, p := range gft.Fields {
+	//	LogDebug(level+1, "Field %s %s %s", p.Name, p.DataType.Name, p.DataType.DefaultValue)
+	//}
+
 }

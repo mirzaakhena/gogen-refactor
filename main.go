@@ -1,60 +1,33 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
+	"bytes"
 	"fmt"
-	"gen/gogen"
-	"gen/gogen2"
-	"golang.org/x/mod/modfile"
-	"os"
+	"gen/gogen5"
+	"time"
 )
 
 func main() {
 
-	flag.Parse()
+	actGi, err := gogen5.Build("./gogen5/data_testing/project/interface001/p1", "./gogen5/data_testing/project/go.mod", "MyInterface1")
+	if err != nil {
+		panic(err)
+	}
 
-	values := flag.Args()
-
-	// "domain_authservice/usecase/runuserlogin"
-	// "InportRequest"
-
-	// "/usr/local/go/src/time/time.go"
-	// "Time"
-
-	//gs, err := gogen2.NewGogenStructBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
+	//gogen5.PrintGogenAnyType(0, actGi)
+	//
+	//jsonInBytes, err := json.Marshal(actGi)
 	//if err != nil {
 	//	panic(err)
 	//}
+	//
+	//fmt.Printf("%v\n", string(jsonInBytes))
 
-	gs, err := gogen2.NewGogenInterfaceBuilder(gogen.GetPackagePath(), values[0]).Build(values[1])
-	if err != nil {
-		panic(err)
-	}
+	var param bytes.Buffer
+	gogen5.WriteTest(actGi, "", &param)
 
-	_ = gs
+	time.Sleep(1 * time.Second)
 
-	jsonInBytes, err := json.MarshalIndent(gs, "", " ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%v\n", string(jsonInBytes))
+	fmt.Printf("%v\n", param.String())
 
-}
-
-func ReadGoMod() string {
-
-	gomodfile := "go.mod"
-
-	fileInBytes, err := os.ReadFile(gomodfile)
-	if err != nil {
-		panic(err)
-	}
-
-	parseGoMod, err := modfile.Parse(gomodfile, fileInBytes, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	return parseGoMod.Module.Mod.String()
 }

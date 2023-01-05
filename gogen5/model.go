@@ -36,6 +36,18 @@ func (r GogenAnyTypeName) String() string {
 	return string(r)
 }
 
+func (r Expression) String() string {
+	return string(r)
+}
+
+func (r ImportPath) String() string {
+	return string(r)
+}
+
+func (r ImportType) String() string {
+	return string(r)
+}
+
 const (
 	ImportTypeGoSDK           ImportType = "GO_SDK"
 	ImportTypeExternalModule  ImportType = "EXTERNAL_MODULE"
@@ -45,7 +57,7 @@ const (
 type GogenImport struct {
 	Name         string     `json:"name"`
 	Path         ImportPath `json:"path"`
-	CompletePath string     `json:"completePath"`
+	CompletePath string     `json:"-"`
 	Expression   Expression `json:"expression"`
 	ImportType   ImportType `json:"importType"`
 }
