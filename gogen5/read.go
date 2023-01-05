@@ -118,26 +118,28 @@ func (r gogenAnyTypeBuilder) handleGogenType(gat *GogenAnyType, gd *gogenData, e
 
 	switch exprType := expr.(type) {
 
-	case *ast.StructType:
-		// TODO handle type as struct
-		err := r.handleStructField(gat, gd, exprType, astFile)
-		if err != nil {
-			return err
-		}
-
 	case *ast.InterfaceType:
-		// handle type as interface
+		// handle type as interface see case1_test.go
 		err := r.handleInterfaceField(gat, gd, exprType, astFile)
 		if err != nil {
 			return err
 		}
 
+	case *ast.StructType:
+		// handle type as struct see case2_test.go
+		err := r.handleStructField(gat, gd, exprType, astFile)
+		if err != nil {
+			return err
+		}
+
 	case *ast.Ident:
-		// TODO handle type as ident alias
+		// handle type as ident alias see case3_test.go
+		// kalau ketemu type tunggal yang ternyata dia adalah struct atau interface
+		newGat := NewGogenAnyType(exprType.String())
 
-		LogDebug(1, ">>>>>>>>>>> %v", exprType.String())
+		gat.AddCompositionType(newGat)
 
-		err := r.handleIdent(gat, gd, exprType, astFile)
+		err := r.handleIdent(newGat, gd, exprType, astFile)
 		if err != nil {
 			return err
 		}
@@ -165,7 +167,11 @@ func (r gogenAnyTypeBuilder) handleInterfaceField(gat *GogenAnyType, gd *gogenDa
 		case *ast.Ident:
 
 			// handle interface method as ident
-			err := r.handleIdent(gat, gd, methodType, astFile)
+			newGat := NewGogenAnyType(methodType.String())
+
+			gat.AddCompositionType(newGat)
+
+			err := r.handleIdent(newGat, gd, methodType, astFile)
 			if err != nil {
 				return err
 			}
@@ -173,7 +179,12 @@ func (r gogenAnyTypeBuilder) handleInterfaceField(gat *GogenAnyType, gd *gogenDa
 		case *ast.SelectorExpr:
 
 			// handle interface method as selector
-			err := r.handleSelector(gat, methodType, astFile)
+
+			newGat := NewGogenAnyType(GetTypeAsString(methodType))
+
+			gat.AddCompositionType(newGat)
+
+			err := r.handleSelector(gat, newGat, methodType, astFile)
 			if err != nil {
 				return err
 			}
@@ -184,27 +195,6 @@ func (r gogenAnyTypeBuilder) handleInterfaceField(gat *GogenAnyType, gd *gogenDa
 		}
 	}
 
-	return nil
-}
-
-func (r gogenAnyTypeBuilder) handleSelector(gat *GogenAnyType, methodType *ast.SelectorExpr, astFile *ast.File) error {
-	gi, err := GetGogenImport(methodType, astFile.Imports, r.goMod)
-	if err != nil {
-		return err
-	}
-
-	expr := Expression(methodType.X.(*ast.Ident).String())
-
-	gat.Imports[expr] = *gi
-
-	newGat := NewGogenAnyType(GetTypeAsString(methodType))
-
-	err = r.traceTypeInPath(gi.CompletePath, newGat, GetBasicType(methodType))
-	if err != nil {
-		return err
-	}
-
-	gat.AddCompositionType(newGat)
 	return nil
 }
 
@@ -233,11 +223,39 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData,
 
 		switch fieldType := field.Type.(type) {
 		case *ast.SelectorExpr:
-			// TODO handle struct field as Selector
+			// handle struct field as Selector
+			LogDebug(1, ">>>>>1 masuk sebagai selector %v", fieldType)
+
+			newGat := NewGogenAnyType(GetTypeAsString(fieldType))
+
+			gat.AddCompositionType(newGat)
+
+			err = r.handleSelector(gat, newGat, fieldType, astFile)
+			if err != nil {
+				return err
+			}
+
 		case *ast.Ident:
-			// TODO handle struct field as Ident
+			// handle struct field as Ident
+			LogDebug(1, ">>>>>1 masuk sebagai ident %v", fieldType)
+
+			newGat := NewGogenAnyType(fieldType.String())
+
+			gat.AddCompositionType(newGat)
+
+			err = r.handleIdent(newGat, gd, fieldType, astFile)
+			if err != nil {
+				return err
+			}
+
 		case *ast.StarExpr:
 			// TODO handle struct field as Star
+			LogDebug(1, ">>>>>1 masuk sebagai star %v", fieldType)
+			err = r.handleStar(gat, gd, fieldType, astFile)
+			if err != nil {
+				return err
+			}
+
 		default:
 			return fmt.Errorf("unsupported struct field %T", fieldType)
 
@@ -395,11 +413,11 @@ func (r gogenAnyTypeBuilder) handleSelectorDefaultValue(imports []*ast.ImportSpe
 	}
 }
 
-func (r gogenAnyTypeBuilder) handleIdent(gat *GogenAnyType, gd *gogenData, fieldType *ast.Ident, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleIdent(newGat *GogenAnyType, gd *gogenData, fieldType *ast.Ident, astFile *ast.File) error {
 
-	newGat := NewGogenAnyType(fieldType.String())
-
-	gat.CompositionTypes = append(gat.CompositionTypes, newGat)
+	//newGat := NewGogenAnyType(fieldType.String())
+	//
+	//gat.AddCompositionType(newGat)
 
 	if fieldType.Obj == nil {
 
@@ -416,6 +434,55 @@ func (r gogenAnyTypeBuilder) handleIdent(gat *GogenAnyType, gd *gogenData, field
 	err := r.handleGogenType(newGat, gd, newTypeSpec.Type, astFile)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (r gogenAnyTypeBuilder) handleSelector(gat, newGat *GogenAnyType, selectorExpr *ast.SelectorExpr, astFile *ast.File) error {
+
+	//newGat := NewGogenAnyType(GetTypeAsString(selectorExpr))
+	//
+	//gat.AddCompositionType(newGat)
+
+	gi, err := GetGogenImport(selectorExpr, astFile.Imports, r.goMod)
+	if err != nil {
+		return err
+	}
+
+	expr := Expression(selectorExpr.X.(*ast.Ident).String())
+
+	gat.Imports[expr] = *gi
+
+	err = r.traceTypeInPath(gi.CompletePath, newGat, GetBasicType(selectorExpr))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r gogenAnyTypeBuilder) handleStar(gat *GogenAnyType, gd *gogenData, starExpr *ast.StarExpr, astFile *ast.File) error {
+
+	newGat := NewGogenAnyType(GetTypeAsString(starExpr))
+
+	gat.AddCompositionType(newGat)
+
+	switch x := starExpr.X.(type) {
+	case *ast.Ident:
+
+		err := r.handleIdent(newGat, gd, x, astFile)
+		if err != nil {
+			return err
+		}
+
+	case *ast.SelectorExpr:
+		
+		err := r.handleSelector(gat, newGat, x, astFile)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil

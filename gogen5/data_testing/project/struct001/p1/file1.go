@@ -2,10 +2,18 @@ package p1
 
 import (
 	"mirza/gogen/refactor/struct001/p2"
+	"mirza/gogen/refactor/struct001/p3"
 	"sync"
 )
 
+type MyStruct3 struct {
+	Field1 bool
+}
+
 type MyStruct1 struct {
+	MyStruct3
+	p3.MyStruct4
+	*p3.MyStruct5
 	Field1 int
 	Field2 sync.WaitGroup
 	Field3 p2.MyStruct2

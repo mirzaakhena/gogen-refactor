@@ -30,8 +30,6 @@ func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, collectedType map[GogenF
 			return basicDefaultValue, nil
 		}
 
-		LogDebug(1, ">>>1 %v %v", gf.Name, "dv")
-
 		tp, exist := collectedType[gf.Name]
 		if !exist {
 			return "", fmt.Errorf("field type %v is not exist anywhere", gf.Name)
