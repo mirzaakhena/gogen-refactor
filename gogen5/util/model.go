@@ -70,12 +70,11 @@ func (r *GogenMethod) AddResult(gf *GogenField) {
 }
 
 type GogenAnyType struct {
-	Name             GogenAnyTypeName            `json:"name"`             // short type []*repo.SaveOrderRepo --> SaveOrderRepo
-	GogenFieldType   *GogenFieldType             `json:"fieldType"`        //
-	CompositionTypes []*GogenAnyType             `json:"compositionTypes"` //
-	Fields           []*GogenField               `json:"fields"`           //
-	Methods          []*GogenMethod              `json:"methods"`          //
-	Imports          map[Expression]*GogenImport `json:"imports"`          //
+	Name             GogenAnyTypeName           `json:"name"`             // short type []*repo.SaveOrderRepo --> SaveOrderRepo
+	CompositionTypes []*GogenAnyType            `json:"compositionTypes"` //
+	Fields           []*GogenField              `json:"fields"`           //
+	Methods          []*GogenMethod             `json:"methods"`          //
+	Imports          map[Expression]GogenImport `json:"imports"`          //
 }
 
 type GoModProperties struct {
@@ -115,11 +114,10 @@ func NewGoModProperties() GoModProperties {
 func NewGogenAnyType(name string) *GogenAnyType {
 	return &GogenAnyType{
 		Name:             GogenAnyTypeName(name),
-		GogenFieldType:   nil,
 		CompositionTypes: make([]*GogenAnyType, 0),
 		Methods:          make([]*GogenMethod, 0),
 		Fields:           make([]*GogenField, 0),
-		Imports:          map[Expression]*GogenImport{},
+		Imports:          map[Expression]GogenImport{},
 	}
 }
 

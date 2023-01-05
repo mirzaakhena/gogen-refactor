@@ -195,7 +195,9 @@ func (r gogenAnyTypeBuilder) handleSelector(gat *util.GogenAnyType, methodType *
 		return err
 	}
 
-	gat.Imports[util.Expression(methodType.X.(*ast.Ident).String())] = gi
+	expr := util.Expression(methodType.X.(*ast.Ident).String())
+
+	gat.Imports[expr] = *gi
 
 	newGat := util.NewGogenAnyType(util.GetTypeAsString(methodType))
 
@@ -218,6 +220,7 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *util.GogenAnyType, gd *gogen
 				gf := util.NewGogenField(n.String(), field.Type)
 				gat.AddField(gf)
 				err := gd.AddUnknownDefaultValue(gf.DataType, r, field.Type, astFile.Imports)
+				//TODO masukkan ke imports juga
 				if err != nil {
 					return err
 				}
@@ -263,7 +266,7 @@ func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *util.GogenAnyType, gd *g
 		return fmt.Errorf("cannot convert method to FuncType")
 	}
 
-	err := r.handleFuncParamResultType(gm, gd, methodType, astFile)
+	err := r.handleFuncParamResultType(gat, gm, gd, methodType, astFile)
 	if err != nil {
 		return err
 	}
@@ -271,10 +274,16 @@ func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *util.GogenAnyType, gd *g
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleFuncParamResultType(gm *util.GogenMethod, gd *gogenData, methodType *ast.FuncType, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, gm *util.GogenMethod, gd *gogenData, methodType *ast.FuncType, astFile *ast.File) error {
 
 	if methodType.Params.NumFields() > 0 {
 		for _, param := range methodType.Params.List {
+
+			// TODO put to the others
+			err := r.handleImport(gat, param, astFile)
+			if err != nil {
+				return err
+			}
 
 			if param.Names == nil {
 				gf := util.NewGogenField(util.GetBasicType(param.Type), param.Type)
@@ -302,6 +311,12 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gm *util.GogenMethod, gd 
 	if methodType.Results.NumFields() > 0 {
 		for _, result := range methodType.Results.List {
 
+			// TODO put to the others
+			err := r.handleImport(gat, result, astFile)
+			if err != nil {
+				return err
+			}
+
 			if result.Names == nil {
 				gf := util.NewGogenField(util.GetBasicType(result.Type), result.Type)
 				gm.AddResult(gf)
@@ -322,6 +337,27 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gm *util.GogenMethod, gd 
 			}
 
 		}
+	}
+
+	return nil
+}
+
+func (r gogenAnyTypeBuilder) handleImport(gat *util.GogenAnyType, param *ast.Field, astFile *ast.File) error {
+
+	selectorExpr := util.GetSelectorExpr(param.Type)
+	if selectorExpr == nil {
+		return nil
+	}
+
+	gi, err := util.GetGogenImport(selectorExpr, astFile.Imports, r.goMod)
+	if err != nil {
+		return err
+	}
+
+	expr := util.Expression(selectorExpr.X.(*ast.Ident).String())
+
+	if _, exist := gat.Imports[expr]; !exist {
+		gat.Imports[expr] = *gi
 	}
 
 	return nil

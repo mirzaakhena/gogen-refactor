@@ -305,6 +305,24 @@ func GetBasicType(expr ast.Expr) string {
 	return ""
 }
 
+func GetSelectorExpr(expr ast.Expr) *ast.SelectorExpr {
+
+	switch fieldType := expr.(type) {
+
+	case *ast.SelectorExpr:
+		return fieldType
+
+	case *ast.StarExpr:
+		return GetSelectorExpr(fieldType.X)
+
+	case *ast.ArrayType:
+		return GetSelectorExpr(fieldType.Elt)
+
+	}
+
+	return nil
+}
+
 func PrintGogenAnyType(level int, gft *GogenAnyType) {
 
 	LogDebug(level, "===<<<<=============================================================")
@@ -344,14 +362,6 @@ func (x printGogenAnyTypeStruct) printGogenAnyTypeLoop(level int, gft *GogenAnyT
 		}
 	}
 
-}
-
-func GetSelectorPath(selectorExpr *ast.SelectorExpr, imports []*ast.ImportSpec, goMod GoModProperties) (string, error) {
-	importInFile, err := GetImportExpression(imports, goMod)
-	if err != nil {
-		return "", err
-	}
-	return string(importInFile[Expression(selectorExpr.X.(*ast.Ident).String())].CompletePath), nil
 }
 
 func GetGogenImport(selectorExpr *ast.SelectorExpr, imports []*ast.ImportSpec, goMod GoModProperties) (*GogenImport, error) {
