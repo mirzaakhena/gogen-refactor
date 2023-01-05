@@ -2,32 +2,27 @@ package gogen5
 
 import (
 	"fmt"
-	"gen/gogen5/util"
 	"go/ast"
 )
 
-type TypeProperties struct {
-	TypeSpec *ast.TypeSpec
-	AstFile  *ast.File
-}
-
 type gogenAnyTypeBuilder struct {
-	goMod         util.GoModProperties
+	goMod         GoModProperties
 	defaultValues map[ast.Expr]string
 }
 
 type gogenData struct {
-	unknownTypes              map[util.GogenFieldTypeName]*util.GogenAnyType
-	unknownFieldDefaultValues map[*util.GogenFieldType]ast.Expr
-	collectedTypes            map[util.GogenFieldTypeName]TypeProperties
+	unknownTypes              map[GogenFieldTypeName]*GogenAnyType
+	unknownFieldDefaultValues map[*GogenFieldType]ast.Expr
+	collectedTypes            map[GogenFieldTypeName]TypeProperties
 	//collectedImports          map[util.Expression][]*ast.ImportSpec
 }
 
-func (r *gogenData) AddUnknownDefaultValue(gf *util.GogenFieldType, at gogenAnyTypeBuilder, expr ast.Expr, imports []*ast.ImportSpec) error {
-	dv, err := util.GetDefaultValue(gf, expr, at.handleSelectorDefaultValue(imports))
+func (r *gogenData) AddUnknownDefaultValue(gf *GogenFieldType, at gogenAnyTypeBuilder, expr ast.Expr, imports []*ast.ImportSpec) error {
+	dv, err := GetDefaultValue(gf, expr, r.collectedTypes, at.handleSelectorDefaultValue(imports))
 	if err != nil {
 		return err
 	}
+
 	at.defaultValues[expr] = dv
 	r.unknownFieldDefaultValues[gf] = expr
 	return nil
@@ -35,37 +30,37 @@ func (r *gogenData) AddUnknownDefaultValue(gf *util.GogenFieldType, at gogenAnyT
 
 func newGogenData() *gogenData {
 	return &gogenData{
-		unknownTypes:              map[util.GogenFieldTypeName]*util.GogenAnyType{},
-		unknownFieldDefaultValues: map[*util.GogenFieldType]ast.Expr{},
-		collectedTypes:            map[util.GogenFieldTypeName]TypeProperties{},
+		unknownTypes:              map[GogenFieldTypeName]*GogenAnyType{},
+		unknownFieldDefaultValues: map[*GogenFieldType]ast.Expr{},
+		collectedTypes:            map[GogenFieldTypeName]TypeProperties{},
 		//collectedImports:          map[util.Expression][]*ast.ImportSpec{},
 	}
 }
 
-func Build(packagePath, goModFilePath, typeTargetName string) (*util.GogenAnyType, error) {
+func Build(packagePath, goModFilePath, typeTargetName string) (*GogenAnyType, error) {
 
-	goMod, err := util.GetGoModProperties(goModFilePath)
+	goMod, err := GetGoModProperties(goModFilePath)
 	if err != nil {
 		return nil, err
 	}
 
-	gat := util.NewGogenAnyType(typeTargetName)
+	gat := NewGogenAnyType(typeTargetName)
 
 	return gat, gogenAnyTypeBuilder{goMod: goMod, defaultValues: map[ast.Expr]string{}}.traceTypeInPath(packagePath, gat, typeTargetName)
 }
 
-func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *util.GogenAnyType, typeTargetName string) error {
+func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *GogenAnyType, typeTargetName string) error {
 
 	gd := newGogenData()
 
-	err := util.TraceNode(packagePath, func(astPackage *ast.Package, astFile *ast.File, node ast.Node) (bool, error) {
+	err := TraceNode(packagePath, func(astPackage *ast.Package, astFile *ast.File, node ast.Node) (bool, error) {
 
 		switch nodeTypeSpec := node.(type) {
 		case *ast.TypeSpec:
 
-			_, exist := gd.collectedTypes[util.GogenFieldTypeName(nodeTypeSpec.Name.String())]
+			_, exist := gd.collectedTypes[GogenFieldTypeName(nodeTypeSpec.Name.String())]
 			if !exist {
-				gd.collectedTypes[util.GogenFieldTypeName(nodeTypeSpec.Name.String())] = TypeProperties{
+				gd.collectedTypes[GogenFieldTypeName(nodeTypeSpec.Name.String())] = TypeProperties{
 					TypeSpec: nodeTypeSpec,
 					AstFile:  astFile,
 				}
@@ -119,12 +114,12 @@ func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *util.Gogen
 
 }
 
-func (r gogenAnyTypeBuilder) handleGogenType(gat *util.GogenAnyType, gd *gogenData, expr ast.Expr, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleGogenType(gat *GogenAnyType, gd *gogenData, expr ast.Expr, astFile *ast.File) error {
 
 	switch exprType := expr.(type) {
 
 	case *ast.StructType:
-		// handle type as struct
+		// TODO handle type as struct
 		err := r.handleStructField(gat, gd, exprType, astFile)
 		if err != nil {
 			return err
@@ -139,10 +134,13 @@ func (r gogenAnyTypeBuilder) handleGogenType(gat *util.GogenAnyType, gd *gogenDa
 
 	case *ast.Ident:
 		// TODO handle type as ident alias
-		//err := g.handleIdent(gi, unknownTypes, unknownFields, typeProperties, ts, collectedType)
-		//if err != nil {
-		//	return err
-		//}
+
+		LogDebug(1, ">>>>>>>>>>> %v", exprType.String())
+
+		err := r.handleIdent(gat, gd, exprType, astFile)
+		if err != nil {
+			return err
+		}
 
 	default:
 		return fmt.Errorf("unsupported type %T", exprType)
@@ -152,7 +150,7 @@ func (r gogenAnyTypeBuilder) handleGogenType(gat *util.GogenAnyType, gd *gogenDa
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleInterfaceField(gat *util.GogenAnyType, gd *gogenData, iType *ast.InterfaceType, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleInterfaceField(gat *GogenAnyType, gd *gogenData, iType *ast.InterfaceType, astFile *ast.File) error {
 
 	for _, method := range iType.Methods.List {
 		switch methodType := method.Type.(type) {
@@ -189,19 +187,19 @@ func (r gogenAnyTypeBuilder) handleInterfaceField(gat *util.GogenAnyType, gd *go
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleSelector(gat *util.GogenAnyType, methodType *ast.SelectorExpr, astFile *ast.File) error {
-	gi, err := util.GetGogenImport(methodType, astFile.Imports, r.goMod)
+func (r gogenAnyTypeBuilder) handleSelector(gat *GogenAnyType, methodType *ast.SelectorExpr, astFile *ast.File) error {
+	gi, err := GetGogenImport(methodType, astFile.Imports, r.goMod)
 	if err != nil {
 		return err
 	}
 
-	expr := util.Expression(methodType.X.(*ast.Ident).String())
+	expr := Expression(methodType.X.(*ast.Ident).String())
 
 	gat.Imports[expr] = *gi
 
-	newGat := util.NewGogenAnyType(util.GetTypeAsString(methodType))
+	newGat := NewGogenAnyType(GetTypeAsString(methodType))
 
-	err = r.traceTypeInPath(gi.CompletePath, newGat, util.GetBasicType(methodType))
+	err = r.traceTypeInPath(gi.CompletePath, newGat, GetBasicType(methodType))
 	if err != nil {
 		return err
 	}
@@ -210,14 +208,14 @@ func (r gogenAnyTypeBuilder) handleSelector(gat *util.GogenAnyType, methodType *
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleStructField(gat *util.GogenAnyType, gd *gogenData, sType *ast.StructType, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData, sType *ast.StructType, astFile *ast.File) error {
 
 	for _, field := range sType.Fields.List {
 
 		if field.Names != nil {
 			// simple field
 			for _, n := range field.Names {
-				gf := util.NewGogenField(n.String(), field.Type)
+				gf := NewGogenField(n.String(), field.Type)
 				gat.AddField(gf)
 				err := gd.AddUnknownDefaultValue(gf.DataType, r, field.Type, astFile.Imports)
 				//TODO masukkan ke imports juga
@@ -246,7 +244,7 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *util.GogenAnyType, gd *gogen
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *util.GogenAnyType, gd *gogenData, method *ast.Field, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *GogenAnyType, gd *gogenData, method *ast.Field, astFile *ast.File) error {
 
 	if method.Names == nil && len(method.Names) > 0 {
 		return fmt.Errorf("unusual method signature")
@@ -257,7 +255,7 @@ func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *util.GogenAnyType, gd *g
 		return nil
 	}
 
-	gm := util.NewGogenMethod(methodName)
+	gm := NewGogenMethod(methodName)
 
 	gat.AddMethod(gm)
 
@@ -274,7 +272,7 @@ func (r gogenAnyTypeBuilder) handleInterfaceMethod(gat *util.GogenAnyType, gd *g
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, gm *util.GogenMethod, gd *gogenData, methodType *ast.FuncType, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *GogenAnyType, gm *GogenMethod, gd *gogenData, methodType *ast.FuncType, astFile *ast.File) error {
 
 	if methodType.Params.NumFields() > 0 {
 		for _, param := range methodType.Params.List {
@@ -286,7 +284,7 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, g
 			}
 
 			if param.Names == nil {
-				gf := util.NewGogenField(util.GetBasicType(param.Type), param.Type)
+				gf := NewGogenField(GetBasicType(param.Type), param.Type)
 				gm.AddParam(gf)
 				err := gd.AddUnknownDefaultValue(gf.DataType, r, param.Type, astFile.Imports)
 				if err != nil {
@@ -297,9 +295,10 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, g
 			}
 
 			for _, n := range param.Names {
-				gf := util.NewGogenField(n.String(), param.Type)
+
+				gf := NewGogenField(n.String(), param.Type)
 				gm.AddParam(gf)
-				err := gd.AddUnknownDefaultValue(gf.DataType, r, param.Type, astFile.Imports)
+				err = gd.AddUnknownDefaultValue(gf.DataType, r, param.Type, astFile.Imports)
 				if err != nil {
 					return err
 				}
@@ -311,14 +310,13 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, g
 	if methodType.Results.NumFields() > 0 {
 		for _, result := range methodType.Results.List {
 
-			// TODO put to the others
 			err := r.handleImport(gat, result, astFile)
 			if err != nil {
 				return err
 			}
 
 			if result.Names == nil {
-				gf := util.NewGogenField(util.GetBasicType(result.Type), result.Type)
+				gf := NewGogenField(GetBasicType(result.Type), result.Type)
 				gm.AddResult(gf)
 				err := gd.AddUnknownDefaultValue(gf.DataType, r, result.Type, astFile.Imports)
 				if err != nil {
@@ -328,7 +326,7 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, g
 			}
 
 			for _, n := range result.Names {
-				gf := util.NewGogenField(n.String(), result.Type)
+				gf := NewGogenField(n.String(), result.Type)
 				gm.AddResult(gf)
 				err := gd.AddUnknownDefaultValue(gf.DataType, r, result.Type, astFile.Imports)
 				if err != nil {
@@ -342,19 +340,19 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *util.GogenAnyType, g
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleImport(gat *util.GogenAnyType, param *ast.Field, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleImport(gat *GogenAnyType, param *ast.Field, astFile *ast.File) error {
 
-	selectorExpr := util.GetSelectorExpr(param.Type)
+	selectorExpr := GetSelectorExpr(param.Type)
 	if selectorExpr == nil {
 		return nil
 	}
 
-	gi, err := util.GetGogenImport(selectorExpr, astFile.Imports, r.goMod)
+	gi, err := GetGogenImport(selectorExpr, astFile.Imports, r.goMod)
 	if err != nil {
 		return err
 	}
 
-	expr := util.Expression(selectorExpr.X.(*ast.Ident).String())
+	expr := Expression(selectorExpr.X.(*ast.Ident).String())
 
 	if _, exist := gat.Imports[expr]; !exist {
 		gat.Imports[expr] = *gi
@@ -367,14 +365,14 @@ func (r gogenAnyTypeBuilder) handleSelectorDefaultValue(imports []*ast.ImportSpe
 
 	return func(selectorExpr *ast.SelectorExpr) (ast.Expr, error) {
 
-		gi, err := util.GetGogenImport(selectorExpr, imports, r.goMod)
+		gi, err := GetGogenImport(selectorExpr, imports, r.goMod)
 		if err != nil {
 			return nil, err
 		}
 
 		var expr ast.Expr
 
-		err = util.TraceNode(gi.CompletePath, func(astPackage *ast.Package, astFile *ast.File, node ast.Node) (bool, error) {
+		err = TraceNode(gi.CompletePath, func(astPackage *ast.Package, astFile *ast.File, node ast.Node) (bool, error) {
 
 			switch nodeTypeSpec := node.(type) {
 			case *ast.TypeSpec:
@@ -394,15 +392,15 @@ func (r gogenAnyTypeBuilder) handleSelectorDefaultValue(imports []*ast.ImportSpe
 	}
 }
 
-func (r gogenAnyTypeBuilder) handleIdent(gat *util.GogenAnyType, gd *gogenData, fieldType *ast.Ident, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleIdent(gat *GogenAnyType, gd *gogenData, fieldType *ast.Ident, astFile *ast.File) error {
 
-	newGat := util.NewGogenAnyType(fieldType.String())
+	newGat := NewGogenAnyType(fieldType.String())
 
 	gat.CompositionTypes = append(gat.CompositionTypes, newGat)
 
 	if fieldType.Obj == nil {
 
-		gd.unknownTypes[util.NewGogenFieldTypeName(fieldType)] = newGat
+		gd.unknownTypes[NewGogenFieldTypeName(fieldType)] = newGat
 
 		return nil
 	}

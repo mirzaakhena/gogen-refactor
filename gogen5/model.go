@@ -1,4 +1,4 @@
-package util
+package gogen5
 
 import (
 	"go/ast"
@@ -14,6 +14,11 @@ type (
 	Expression         string
 	Version            string
 )
+
+type TypeProperties struct {
+	TypeSpec *ast.TypeSpec
+	AstFile  *ast.File
+}
 
 func (r GogenFieldTypeName) String() string {
 	return string(r)
@@ -123,14 +128,6 @@ func NewGogenAnyType(name string) *GogenAnyType {
 
 func NewGogenFieldTypeName(expr ast.Expr) GogenFieldTypeName {
 	return GogenFieldTypeName(GetTypeAsString(expr))
-}
-
-func NewGogenMethodName(name string) GogenMethodName {
-	return GogenMethodName(name)
-}
-
-func NewGogenFieldName(name string) GogenFieldName {
-	return GogenFieldName(name)
 }
 
 func (m *GogenAnyType) AddField(gf *GogenField) {

@@ -1,4 +1,4 @@
-package util
+package gogen5
 
 import (
 	"bytes"

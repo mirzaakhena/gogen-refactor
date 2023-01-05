@@ -1,4 +1,4 @@
-package util
+package gogen5
 
 import (
 	"fmt"
@@ -12,13 +12,13 @@ import (
 	"strings"
 )
 
-func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, handleSelectorDefaultValue func(selectorExpr *ast.SelectorExpr) (ast.Expr, error)) (string, error) {
+func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, collectedType map[GogenFieldTypeName]TypeProperties, handleSelectorDefaultValue func(selectorExpr *ast.SelectorExpr) (ast.Expr, error)) (string, error) {
 
 	switch exprType := expr.(type) {
 	case *ast.Ident:
 
 		if exprType.Obj != nil {
-			return GetDefaultValue(gf, exprType.Obj.Decl.(*ast.TypeSpec).Type, handleSelectorDefaultValue)
+			return GetDefaultValue(gf, exprType.Obj.Decl.(*ast.TypeSpec).Type, collectedType, handleSelectorDefaultValue)
 		}
 
 		basicDefaultValue := handlePrimitiveType(exprType)
@@ -30,7 +30,19 @@ func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, handleSelectorDefaultVal
 			return basicDefaultValue, nil
 		}
 
-		return basicDefaultValue, nil
+		LogDebug(1, ">>>1 %v %v", gf.Name, "dv")
+
+		tp, exist := collectedType[gf.Name]
+		if !exist {
+			return "", fmt.Errorf("field type %v is not exist anywhere", gf.Name)
+		}
+
+		value, err := GetDefaultValue(gf, tp.TypeSpec.Type, collectedType, nil)
+		if err != nil {
+			return "", err
+		}
+
+		return value, nil
 
 	case *ast.StructType:
 		return fmt.Sprintf("%v{}", gf.Name), nil
@@ -49,7 +61,7 @@ func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, handleSelectorDefaultVal
 			return "", err
 		}
 
-		result, err := GetDefaultValue(gf, newExpr, nil)
+		result, err := GetDefaultValue(gf, newExpr, collectedType, nil)
 		if err != nil {
 			return "", err
 		}

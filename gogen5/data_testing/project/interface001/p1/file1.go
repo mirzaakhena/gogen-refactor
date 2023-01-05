@@ -8,7 +8,7 @@ import (
 )
 
 type MyInterface2 interface {
-	Method21()
+	Method21(b MyAliasInteger)
 }
 
 type MyInterface1 interface {
@@ -24,5 +24,5 @@ type MyInterface1 interface {
 }
 
 type MyInterface3 interface {
-	Method31()
+	Method31(c []MyAliasInteger)
 }
