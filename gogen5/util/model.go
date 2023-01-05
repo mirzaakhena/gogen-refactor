@@ -11,7 +11,6 @@ type (
 	GogenFieldTypeName string
 	ImportType         string
 	ImportPath         string
-	AbsolutePath       string
 	Expression         string
 	Version            string
 )
@@ -39,11 +38,11 @@ const (
 )
 
 type GogenImport struct {
-	Name         string       `json:"name"`
-	Path         ImportPath   `json:"path"`
-	CompletePath AbsolutePath `json:"completePath"`
-	Expression   Expression   `json:"expression"`
-	ImportType   ImportType   `json:"importType"`
+	Name         string     `json:"name"`
+	Path         ImportPath `json:"path"`
+	CompletePath string     `json:"completePath"`
+	Expression   Expression `json:"expression"`
+	ImportType   ImportType `json:"importType"`
 }
 
 type GogenFieldType struct {

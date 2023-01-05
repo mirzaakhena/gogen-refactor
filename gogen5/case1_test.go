@@ -1,6 +1,8 @@
 package gogen5
 
 import (
+	"encoding/json"
+	"fmt"
 	"gen/gogen5/util"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -12,12 +14,20 @@ func TestCase001(t *testing.T) {
 
 	util.PrintGogenAnyType(1, actGi)
 
+	jsonInBytes, err := json.Marshal(actGi)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%v\n", string(jsonInBytes))
+
 	assert.Nil(t, err)
 
 	assert.Equal(t, "MyInterface1", actGi.Name.String())
-	assert.Nil(t, actGi.GogenFieldType)
 	assert.Equal(t, 3, len(actGi.Methods))
+	assert.Equal(t, 5, len(actGi.CompositionTypes))
 
+	// MyInterface1.Method11
 	{
 		assert.Equal(t, "Method11", actGi.Methods[0].Name.String())
 
@@ -41,6 +51,7 @@ func TestCase001(t *testing.T) {
 		assert.Equal(t, "nil", actGi.Methods[0].Results[1].DataType.DefaultValue)
 	}
 
+	// MyInterface1.Method12
 	{
 		assert.Equal(t, "Method12", actGi.Methods[1].Name.String())
 
@@ -64,6 +75,7 @@ func TestCase001(t *testing.T) {
 		assert.Equal(t, "nil", actGi.Methods[1].Results[1].DataType.DefaultValue)
 	}
 
+	// MyInterface1.Method13
 	{
 		assert.Equal(t, "Method13", actGi.Methods[2].Name.String())
 
@@ -79,23 +91,53 @@ func TestCase001(t *testing.T) {
 		assert.Equal(t, "nil", actGi.Methods[2].Params[1].DataType.DefaultValue)
 	}
 
-	assert.Equal(t, 5, len(actGi.CompositionTypes))
+	// MyInterface1.MyInterface2.Method21
+	{
+		assert.Equal(t, "MyInterface2", actGi.CompositionTypes[0].Name.String())
+		assert.Equal(t, 1, len(actGi.CompositionTypes[0].Methods))
+		assert.Equal(t, "Method21", actGi.CompositionTypes[0].Methods[0].Name.String())
+		assert.Equal(t, 0, len(actGi.CompositionTypes[0].Methods[0].Params))
+		assert.Equal(t, 0, len(actGi.CompositionTypes[0].Methods[0].Results))
+	}
 
-	assert.Equal(t, "MyInterface2", actGi.CompositionTypes[0].Name.String())
-	assert.Equal(t, 1, len(actGi.CompositionTypes[0].Methods))
-	assert.Equal(t, "Method21", actGi.CompositionTypes[0].Methods[0].Name.String())
+	// MyInterface1.MyInterface3.Method31
+	{
 
-	assert.Equal(t, "MyInterface3", actGi.CompositionTypes[1].Name.String())
-	assert.Equal(t, 1, len(actGi.CompositionTypes[1].Methods))
-	assert.Equal(t, "Method31", actGi.CompositionTypes[1].Methods[0].Name.String())
+		assert.Equal(t, "MyInterface3", actGi.CompositionTypes[1].Name.String())
+		assert.Equal(t, 1, len(actGi.CompositionTypes[1].Methods))
+		assert.Equal(t, "Method31", actGi.CompositionTypes[1].Methods[0].Name.String())
+		assert.Equal(t, 0, len(actGi.CompositionTypes[1].Methods[0].Params))
+		assert.Equal(t, 0, len(actGi.CompositionTypes[1].Methods[0].Results))
 
-	assert.Equal(t, "MyInterface4", actGi.CompositionTypes[2].Name.String())
-	//assert.Equal(t, "Method41", actGi.CompositionTypes[2].Methods[0].Name.String())
+	}
 
-	assert.Equal(t, "MyInterface5", actGi.CompositionTypes[3].Name.String())
-	//assert.Equal(t, "Method51", actGi.CompositionTypes[3].Methods[0].Name.String())
+	// MyInterface1.MyInterface4.Method41
+	{
 
-	assert.Equal(t, "p2.MyInterface6", actGi.CompositionTypes[4].Name.String())
-	//assert.Equal(t, "Method61", actGi.CompositionTypes[4].Methods[0].Name.String())
+		assert.Equal(t, "MyInterface4", actGi.CompositionTypes[2].Name.String())
+		assert.Equal(t, 1, len(actGi.CompositionTypes[2].Methods))
+		assert.Equal(t, "Method41", actGi.CompositionTypes[2].Methods[0].Name.String())
+		assert.Equal(t, 0, len(actGi.CompositionTypes[2].Methods[0].Params))
+		assert.Equal(t, 0, len(actGi.CompositionTypes[2].Methods[0].Results))
+
+	}
+
+	// MyInterface1.MyInterface5.Method51
+	{
+		assert.Equal(t, "MyInterface5", actGi.CompositionTypes[3].Name.String())
+		assert.Equal(t, 1, len(actGi.CompositionTypes[3].Methods))
+		assert.Equal(t, "Method51", actGi.CompositionTypes[3].Methods[0].Name.String())
+		assert.Equal(t, 0, len(actGi.CompositionTypes[3].Methods[0].Params))
+		assert.Equal(t, 0, len(actGi.CompositionTypes[3].Methods[0].Results))
+	}
+
+	// MyInterface1.p2.MyInterface6.Method61
+	{
+		assert.Equal(t, "p2.MyInterface6", actGi.CompositionTypes[4].Name.String())
+		assert.Equal(t, 1, len(actGi.CompositionTypes[4].Methods))
+		assert.Equal(t, "Method61", actGi.CompositionTypes[4].Methods[0].Name.String())
+		assert.Equal(t, 0, len(actGi.CompositionTypes[4].Methods[0].Params))
+		assert.Equal(t, 0, len(actGi.CompositionTypes[4].Methods[0].Results))
+	}
 
 }

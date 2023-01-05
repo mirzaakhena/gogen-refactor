@@ -139,12 +139,10 @@ func GetImportExpression(importSpecs []*ast.ImportSpec, gmp GoModProperties) (ma
 
 		importPath := ImportPath(strings.Trim(importSpec.Path.Value, `"`))
 
-		//LogDebug(4, "read package with path %s", importPath)
-
 		version, exist := gmp.RequirePath[importPath]
 		if exist {
 
-			completePath := AbsolutePath(fmt.Sprintf("%v/pkg/mod/%v@%v", build.Default.GOPATH, importPath, version))
+			completePath := fmt.Sprintf("%v/pkg/mod/%v@%v", build.Default.GOPATH, importPath, version)
 
 			pkgs, err := parser.ParseDir(token.NewFileSet(), string(completePath), nil, parser.PackageClauseOnly)
 			if err != nil {
@@ -169,8 +167,6 @@ func GetImportExpression(importSpecs []*ast.ImportSpec, gmp GoModProperties) (ma
 				}
 
 				importInFile[expr] = &gi
-
-				//LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 
 			}
 
@@ -204,12 +200,10 @@ func GetImportExpression(importSpecs []*ast.ImportSpec, gmp GoModProperties) (ma
 					Path:         importPath,
 					Expression:   expr,
 					ImportType:   ImportTypeInternalProject,
-					CompletePath: AbsolutePath(completePathStr),
+					CompletePath: completePathStr,
 				}
 
 				importInFile[expr] = &gi
-
-				//LogDebug(5, "found %v in path %v as %s", expr, completePathStr, gi.ImportType)
 
 			}
 
@@ -225,7 +219,7 @@ func GetImportExpression(importSpecs []*ast.ImportSpec, gmp GoModProperties) (ma
 				expr = Expression(name)
 			}
 
-			completePath := AbsolutePath(fmt.Sprintf("%s/src/%s", build.Default.GOROOT, expr))
+			completePath := fmt.Sprintf("%s/src/%s", build.Default.GOROOT, expr)
 
 			gi := GogenImport{
 				Name:         name,
@@ -237,7 +231,6 @@ func GetImportExpression(importSpecs []*ast.ImportSpec, gmp GoModProperties) (ma
 
 			importInFile[expr] = &gi
 
-			//LogDebug(5, "found %v in path %v as %s", expr, completePath, gi.ImportType)
 		}
 
 	}
@@ -258,8 +251,6 @@ func GetGoModProperties(goModFilePath string) (GoModProperties, error) {
 
 	gmp.AbsolutePathProject = absoluteGomodPath[:strings.LastIndex(absoluteGomodPath, filepath.Base(goModFilePath))]
 
-	//LogDebug(0, "absolute path project path : %s", g.GoModProperties.AbsolutePathProject)
-
 	dataInBytes, err := os.ReadFile(goModFilePath)
 	if err != nil {
 		return gmp, err
@@ -274,9 +265,6 @@ func GetGoModProperties(goModFilePath string) (GoModProperties, error) {
 	if len(parsedGoMod.Module.Syntax.Token) >= 2 {
 		gmp.ModuleName = parsedGoMod.Module.Syntax.Token[1]
 	}
-	//LogDebug(0, "we get the module name : %v", g.GoModProperties.ModuleName)
-
-	//LogDebug(0, "read the require path in go.mod :")
 
 	for _, req := range parsedGoMod.Require {
 		if len(req.Syntax.Token) == 1 {
@@ -287,7 +275,6 @@ func GetGoModProperties(goModFilePath string) (GoModProperties, error) {
 			ip := ImportPath(req.Syntax.Token[0])
 			v := Version(req.Syntax.Token[1])
 			gmp.RequirePath[ip] = v
-			//LogDebug(1, "path %v, version %v", ip, v)
 			continue
 		}
 	}
@@ -365,7 +352,14 @@ func GetSelectorPath(selectorExpr *ast.SelectorExpr, imports []*ast.ImportSpec, 
 		return "", err
 	}
 	return string(importInFile[Expression(selectorExpr.X.(*ast.Ident).String())].CompletePath), nil
+}
 
+func GetGogenImport(selectorExpr *ast.SelectorExpr, imports []*ast.ImportSpec, goMod GoModProperties) (*GogenImport, error) {
+	importInFile, err := GetImportExpression(imports, goMod)
+	if err != nil {
+		return nil, err
+	}
+	return importInFile[Expression(selectorExpr.X.(*ast.Ident).String())], nil
 }
 
 func LogDebug(identationLevel int, format string, args ...any) {
