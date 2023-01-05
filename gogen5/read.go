@@ -212,13 +212,17 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData,
 
 	for _, field := range sType.Fields.List {
 
+		err := r.handleImport(gat, field.Type, astFile)
+		if err != nil {
+			return err
+		}
+
 		if field.Names != nil {
 			// simple field
 			for _, n := range field.Names {
 				gf := NewGogenField(n.String(), field.Type)
 				gat.AddField(gf)
-				err := gd.AddUnknownDefaultValue(gf.DataType, r, field.Type, astFile.Imports)
-				//TODO masukkan ke imports juga
+				err = gd.AddUnknownDefaultValue(gf.DataType, r, field.Type, astFile.Imports)
 				if err != nil {
 					return err
 				}
@@ -277,8 +281,7 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *GogenAnyType, gm *Go
 	if methodType.Params.NumFields() > 0 {
 		for _, param := range methodType.Params.List {
 
-			// TODO put to the others
-			err := r.handleImport(gat, param, astFile)
+			err := r.handleImport(gat, param.Type, astFile)
 			if err != nil {
 				return err
 			}
@@ -310,7 +313,7 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *GogenAnyType, gm *Go
 	if methodType.Results.NumFields() > 0 {
 		for _, result := range methodType.Results.List {
 
-			err := r.handleImport(gat, result, astFile)
+			err := r.handleImport(gat, result.Type, astFile)
 			if err != nil {
 				return err
 			}
@@ -340,9 +343,9 @@ func (r gogenAnyTypeBuilder) handleFuncParamResultType(gat *GogenAnyType, gm *Go
 	return nil
 }
 
-func (r gogenAnyTypeBuilder) handleImport(gat *GogenAnyType, param *ast.Field, astFile *ast.File) error {
+func (r gogenAnyTypeBuilder) handleImport(gat *GogenAnyType, expr ast.Expr, astFile *ast.File) error {
 
-	selectorExpr := GetSelectorExpr(param.Type)
+	selectorExpr := GetSelectorExpr(expr)
 	if selectorExpr == nil {
 		return nil
 	}
@@ -352,10 +355,10 @@ func (r gogenAnyTypeBuilder) handleImport(gat *GogenAnyType, param *ast.Field, a
 		return err
 	}
 
-	expr := Expression(selectorExpr.X.(*ast.Ident).String())
+	exprFromSelector := Expression(selectorExpr.X.(*ast.Ident).String())
 
-	if _, exist := gat.Imports[expr]; !exist {
-		gat.Imports[expr] = *gi
+	if _, exist := gat.Imports[exprFromSelector]; !exist {
+		gat.Imports[exprFromSelector] = *gi
 	}
 
 	return nil

@@ -23,6 +23,7 @@ func TestCase001(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, "MyInterface1", actGi.Name.String())
+	assert.Equal(t, 0, len(actGi.Fields))
 	assert.Equal(t, 4, len(actGi.Methods))
 	assert.Equal(t, 5, len(actGi.CompositionTypes))
 	assert.Equal(t, 4, len(actGi.Imports))

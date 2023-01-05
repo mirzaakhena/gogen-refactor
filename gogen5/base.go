@@ -68,13 +68,13 @@ func GetDefaultValue(gf *GogenFieldType, expr ast.Expr, collectedType map[GogenF
 
 		return result, nil
 
+	case *ast.MapType:
+		return fmt.Sprintf("%s{}", gf.Name), nil
+
 	case *ast.StarExpr:
 		return "nil", nil
 
 	case *ast.InterfaceType:
-		return "nil", nil
-
-	case *ast.MapType:
 		return "nil", nil
 
 	case *ast.ChanType:
