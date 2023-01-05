@@ -195,6 +195,8 @@ func (r gogenAnyTypeBuilder) handleSelector(gat *util.GogenAnyType, methodType *
 		return err
 	}
 
+	gat.Imports[util.Expression(methodType.X.(*ast.Ident).String())] = gi
+
 	newGat := util.NewGogenAnyType(util.GetTypeAsString(methodType))
 
 	err = r.traceTypeInPath(gi.CompletePath, newGat, util.GetBasicType(methodType))
