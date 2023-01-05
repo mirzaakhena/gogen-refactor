@@ -24,7 +24,8 @@ func main() {
 	//fmt.Printf("%v\n", string(jsonInBytes))
 
 	var param bytes.Buffer
-	gogen5.WriteTest(actGi, "", &param)
+	var level int
+	gogen5.WriteTest(actGi, level, "", &param)
 
 	time.Sleep(1 * time.Second)
 

@@ -389,7 +389,7 @@ func LogDebug(identationLevel int, format string, args ...any) {
 	fmt.Printf(y+format+"\n", args...)
 }
 
-func WriteTest(gat *GogenAnyType, prefix string, param *bytes.Buffer) {
+func WriteTest(gat *GogenAnyType, level int, prefix string, param *bytes.Buffer) {
 
 	param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Name.String())\n", gat.Name, prefix))
 	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Methods))\n", len(gat.Methods), prefix))
@@ -440,20 +440,17 @@ func WriteTest(gat *GogenAnyType, prefix string, param *bytes.Buffer) {
 	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.Imports))\n", len(gat.Imports), prefix))
 	param.WriteString("\n")
 	for kImport, v := range gat.Imports {
-		param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi.Imports[\"%s\"].Name)\n", v.Name, kImport.String()))
-		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].Expression.String())\n", v.Expression.String(), kImport.String()))
-		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].Path.String())\n", v.Path.String(), kImport.String()))
-		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi.Imports[\"%s\"].ImportType.String())\n", v.ImportType.String(), kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, `%s`, actGi%s.Imports[\"%s\"].Name)\n", v.Name, prefix, kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Imports[\"%s\"].Expression.String())\n", v.Expression.String(), prefix, kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Imports[\"%s\"].Path.String())\n", v.Path.String(), prefix, kImport.String()))
+		param.WriteString(fmt.Sprintf("assert.Equal(t, \"%s\", actGi%s.Imports[\"%s\"].ImportType.String())\n", v.ImportType.String(), prefix, kImport.String()))
 		param.WriteString("\n")
 	}
 
 	param.WriteString(fmt.Sprintf("assert.Equal(t, %d, len(actGi%s.CompositionTypes))\n", len(gat.CompositionTypes), prefix))
 
-	//for _, v := range gft.CompositionTypes {
-	//	x.printGogenAnyTypeLoop(level+1, v)
-	//}
-	//for _, p := range gft.Fields {
-	//	LogDebug(level+1, "Field %s %s %s", p.Name, p.DataType.Name, p.DataType.DefaultValue)
-	//}
+	for iComposition, c := range gat.CompositionTypes {
+		WriteTest(c, level+1, fmt.Sprintf("%s.CompositionTypes[%d]", prefix, iComposition), param)
+	}
 
 }

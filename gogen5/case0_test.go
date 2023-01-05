@@ -104,5 +104,155 @@ func TestCase101(t *testing.T) {
 	assert.Equal(t, "INTERNAL_PROJECT", actGi.Imports["p4"].ImportType.String())
 
 	assert.Equal(t, 5, len(actGi.CompositionTypes))
+	assert.Equal(t, "MyInterface2", actGi.CompositionTypes[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[0].Methods))
+
+	assert.Equal(t, "Method21", actGi.CompositionTypes[0].Methods[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[0].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].Methods[0].Results))
+
+	assert.Equal(t, "b", actGi.CompositionTypes[0].Methods[0].Params[0].Name.String())
+	assert.Equal(t, "MyAliasInteger", actGi.CompositionTypes[0].Methods[0].Params[0].DataType.Name.String())
+	assert.Equal(t, `MyAliasInteger(0)`, actGi.CompositionTypes[0].Methods[0].Params[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].CompositionTypes))
+	assert.Equal(t, "MyInterface3", actGi.CompositionTypes[1].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[1].Methods))
+
+	assert.Equal(t, "Method31", actGi.CompositionTypes[1].Methods[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[1].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].Methods[0].Results))
+
+	assert.Equal(t, "c", actGi.CompositionTypes[1].Methods[0].Params[0].Name.String())
+	assert.Equal(t, "[]MyAliasInteger", actGi.CompositionTypes[1].Methods[0].Params[0].DataType.Name.String())
+	assert.Equal(t, `[]MyAliasInteger{}`, actGi.CompositionTypes[1].Methods[0].Params[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].CompositionTypes))
+	assert.Equal(t, "MyInterface4", actGi.CompositionTypes[2].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[2].Methods))
+
+	assert.Equal(t, "Method41", actGi.CompositionTypes[2].Methods[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Methods[0].Results))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].CompositionTypes))
+	assert.Equal(t, "MyInterface5", actGi.CompositionTypes[3].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[3].Methods))
+
+	assert.Equal(t, "Method51", actGi.CompositionTypes[3].Methods[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[3].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[3].Methods[0].Results))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[3].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[3].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[3].CompositionTypes))
+	assert.Equal(t, "p2.MyInterface6", actGi.CompositionTypes[4].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].Methods))
+
+	assert.Equal(t, "Method61", actGi.CompositionTypes[4].Methods[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].Methods[0].Results))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].Fields))
+
+	//
+
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].Imports))
+
+	assert.Equal(t, ``, actGi.CompositionTypes[4].Imports["p3differentname"].Name)
+	assert.Equal(t, "p3differentname", actGi.CompositionTypes[4].Imports["p3differentname"].Expression.String())
+	assert.Equal(t, "mirza/gogen/refactor/interface001/p3", actGi.CompositionTypes[4].Imports["p3differentname"].Path.String())
+	assert.Equal(t, "INTERNAL_PROJECT", actGi.CompositionTypes[4].Imports["p3differentname"].ImportType.String())
+
+	assert.Equal(t, 2, len(actGi.CompositionTypes[4].CompositionTypes))
+	assert.Equal(t, "MyInterface7", actGi.CompositionTypes[4].CompositionTypes[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[0].Methods))
+
+	assert.Equal(t, "Method71", actGi.CompositionTypes[4].CompositionTypes[0].Methods[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[0].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[0].Methods[0].Results))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[0].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[0].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[0].CompositionTypes))
+	assert.Equal(t, "p3differentname.MyInterface8", actGi.CompositionTypes[4].CompositionTypes[1].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[1].Methods))
+
+	assert.Equal(t, "Method81", actGi.CompositionTypes[4].CompositionTypes[1].Methods[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].Methods[0].Results))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].Imports))
+
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes))
+	assert.Equal(t, "MyInterface9", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods))
+
+	assert.Equal(t, "Method91", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Name.String())
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Params))
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Results))
+
+	assert.Equal(t, "MyStruct1", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Params[0].Name.String())
+	assert.Equal(t, "[]p4.MyStruct1", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Params[0].DataType.Name.String())
+	assert.Equal(t, `[]p4.MyStruct1{}`, actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Methods[0].Params[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Fields))
+
+	//
+
+	assert.Equal(t, 1, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Imports))
+
+	assert.Equal(t, ``, actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Imports["p4"].Name)
+	assert.Equal(t, "p4", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Imports["p4"].Expression.String())
+	assert.Equal(t, "mirza/gogen/refactor/interface001/p4", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Imports["p4"].Path.String())
+	assert.Equal(t, "INTERNAL_PROJECT", actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].Imports["p4"].ImportType.String())
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].CompositionTypes))
 
 }
