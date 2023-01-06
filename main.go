@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	actGi, err := gogen5.Build("./gogen5/data_testing/project/interface001/p1", "./gogen5/data_testing/project/go.mod", "MyInterface1")
+	actGi, err := gogen5.Build("./gogen5/data_testing/project/struct001/p1", "./gogen5/data_testing/project/go.mod", "MyStruct1")
 	if err != nil {
 		panic(err)
 	}

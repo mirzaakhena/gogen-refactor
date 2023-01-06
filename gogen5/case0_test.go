@@ -256,3 +256,136 @@ func TestCase101(t *testing.T) {
 	assert.Equal(t, 0, len(actGi.CompositionTypes[4].CompositionTypes[1].CompositionTypes[0].CompositionTypes))
 
 }
+
+func TestCase102(t *testing.T) {
+
+	actGi, err := Build("./data_testing/project/struct001/p1", "./data_testing/project/go.mod", "MyStruct1")
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, "MyStruct1", actGi.Name.String())
+	assert.Equal(t, 1, len(actGi.Methods))
+
+	assert.Equal(t, "MethodStruct1", actGi.Methods[0].Name.String())
+	assert.Equal(t, 1, len(actGi.Methods[0].Params))
+	assert.Equal(t, 1, len(actGi.Methods[0].Results))
+
+	assert.Equal(t, "x", actGi.Methods[0].Params[0].Name.String())
+	assert.Equal(t, "int", actGi.Methods[0].Params[0].DataType.Name.String())
+	assert.Equal(t, `0`, actGi.Methods[0].Params[0].DataType.DefaultValue)
+
+	assert.Equal(t, "error", actGi.Methods[0].Results[0].Name.String())
+	assert.Equal(t, "error", actGi.Methods[0].Results[0].DataType.Name.String())
+	assert.Equal(t, `nil`, actGi.Methods[0].Results[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 10, len(actGi.Fields))
+
+	assert.Equal(t, "Field1", actGi.Fields[0].Name.String())
+	assert.Equal(t, "int", actGi.Fields[0].DataType.Name.String())
+	assert.Equal(t, `0`, actGi.Fields[0].DataType.DefaultValue)
+
+	assert.Equal(t, "Field2", actGi.Fields[1].Name.String())
+	assert.Equal(t, "sync.WaitGroup", actGi.Fields[1].DataType.Name.String())
+	assert.Equal(t, `sync.WaitGroup{}`, actGi.Fields[1].DataType.DefaultValue)
+
+	assert.Equal(t, "Field3", actGi.Fields[2].Name.String())
+	assert.Equal(t, "p2.MyStruct2", actGi.Fields[2].DataType.Name.String())
+	assert.Equal(t, `p2.MyStruct2{}`, actGi.Fields[2].DataType.DefaultValue)
+
+	assert.Equal(t, "Field4", actGi.Fields[3].Name.String())
+	assert.Equal(t, "p2.MyAliasBool", actGi.Fields[3].DataType.Name.String())
+	assert.Equal(t, `p2.MyAliasBool(false)`, actGi.Fields[3].DataType.DefaultValue)
+
+	assert.Equal(t, "Field5", actGi.Fields[4].Name.String())
+	assert.Equal(t, "[]string", actGi.Fields[4].DataType.Name.String())
+	assert.Equal(t, `[]string{}`, actGi.Fields[4].DataType.DefaultValue)
+
+	assert.Equal(t, "Field6", actGi.Fields[5].Name.String())
+	assert.Equal(t, "[]*p2.MyStruct2", actGi.Fields[5].DataType.Name.String())
+	assert.Equal(t, `[]*p2.MyStruct2{}`, actGi.Fields[5].DataType.DefaultValue)
+
+	assert.Equal(t, "Field7", actGi.Fields[6].Name.String())
+	assert.Equal(t, "p2.MyInterface1", actGi.Fields[6].DataType.Name.String())
+	assert.Equal(t, `nil`, actGi.Fields[6].DataType.DefaultValue)
+
+	assert.Equal(t, "Field8", actGi.Fields[7].Name.String())
+	assert.Equal(t, "struct{x int; y string}", actGi.Fields[7].DataType.Name.String())
+	assert.Equal(t, `struct{x int; y string}{}`, actGi.Fields[7].DataType.DefaultValue)
+
+	assert.Equal(t, "Field9", actGi.Fields[8].Name.String())
+	assert.Equal(t, "func(string, ) int", actGi.Fields[8].DataType.Name.String())
+	assert.Equal(t, `nil`, actGi.Fields[8].DataType.DefaultValue)
+
+	assert.Equal(t, "Field10", actGi.Fields[9].Name.String())
+	assert.Equal(t, "map[string]int", actGi.Fields[9].DataType.Name.String())
+	assert.Equal(t, `map[string]int{}`, actGi.Fields[9].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 3, len(actGi.Imports))
+
+	assert.Equal(t, ``, actGi.Imports["sync"].Name)
+	assert.Equal(t, "sync", actGi.Imports["sync"].Expression.String())
+	assert.Equal(t, "sync", actGi.Imports["sync"].Path.String())
+	assert.Equal(t, "GO_SDK", actGi.Imports["sync"].ImportType.String())
+
+	assert.Equal(t, ``, actGi.Imports["p2"].Name)
+	assert.Equal(t, "p2", actGi.Imports["p2"].Expression.String())
+	assert.Equal(t, "mirza/gogen/refactor/struct001/p2", actGi.Imports["p2"].Path.String())
+	assert.Equal(t, "INTERNAL_PROJECT", actGi.Imports["p2"].ImportType.String())
+
+	assert.Equal(t, ``, actGi.Imports["p3"].Name)
+	assert.Equal(t, "p3", actGi.Imports["p3"].Expression.String())
+	assert.Equal(t, "mirza/gogen/refactor/struct001/p3", actGi.Imports["p3"].Path.String())
+	assert.Equal(t, "INTERNAL_PROJECT", actGi.Imports["p3"].ImportType.String())
+
+	assert.Equal(t, 3, len(actGi.CompositionTypes))
+	assert.Equal(t, "MyStruct3", actGi.CompositionTypes[0].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].Methods))
+
+	//
+
+	assert.Equal(t, 1, len(actGi.CompositionTypes[0].Fields))
+
+	assert.Equal(t, "Field1", actGi.CompositionTypes[0].Fields[0].Name.String())
+	assert.Equal(t, "bool", actGi.CompositionTypes[0].Fields[0].DataType.Name.String())
+	assert.Equal(t, `false`, actGi.CompositionTypes[0].Fields[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[0].CompositionTypes))
+	assert.Equal(t, "p3.MyStruct4", actGi.CompositionTypes[1].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].Methods))
+
+	//
+
+	assert.Equal(t, 1, len(actGi.CompositionTypes[1].Fields))
+
+	assert.Equal(t, "Field1", actGi.CompositionTypes[1].Fields[0].Name.String())
+	assert.Equal(t, "float64", actGi.CompositionTypes[1].Fields[0].DataType.Name.String())
+	assert.Equal(t, `0.0`, actGi.CompositionTypes[1].Fields[0].DataType.DefaultValue)
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[1].CompositionTypes))
+	assert.Equal(t, "*p3.MyStruct5", actGi.CompositionTypes[2].Name.String())
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Methods))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Fields))
+
+	//
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].Imports))
+
+	assert.Equal(t, 0, len(actGi.CompositionTypes[2].CompositionTypes))
+
+}

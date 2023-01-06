@@ -76,7 +76,21 @@ func (r gogenAnyTypeBuilder) traceTypeInPath(packagePath string, gat *GogenAnyTy
 			}
 
 		case *ast.FuncDecl:
-			// TODO found method
+			// found method of struct
+
+			if nodeTypeSpec.Recv == nil {
+				return false, nil
+			}
+
+			gm := NewGogenMethod(nodeTypeSpec.Name.String())
+
+			gat.AddMethod(gm)
+
+			err := r.handleFuncParamResultType(gat, gm, gd, nodeTypeSpec.Type, astFile)
+			if err != nil {
+				return true, err
+			}
+
 		}
 
 		return true, nil
@@ -224,7 +238,6 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData,
 		switch fieldType := field.Type.(type) {
 		case *ast.SelectorExpr:
 			// handle struct field as Selector
-			LogDebug(1, ">>>>>1 masuk sebagai selector %v", fieldType)
 
 			newGat := NewGogenAnyType(GetTypeAsString(fieldType))
 
@@ -237,7 +250,6 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData,
 
 		case *ast.Ident:
 			// handle struct field as Ident
-			LogDebug(1, ">>>>>1 masuk sebagai ident %v", fieldType)
 
 			newGat := NewGogenAnyType(fieldType.String())
 
@@ -249,8 +261,7 @@ func (r gogenAnyTypeBuilder) handleStructField(gat *GogenAnyType, gd *gogenData,
 			}
 
 		case *ast.StarExpr:
-			// TODO handle struct field as Star
-			LogDebug(1, ">>>>>1 masuk sebagai star %v", fieldType)
+			// handle struct field as Star
 			err = r.handleStar(gat, gd, fieldType, astFile)
 			if err != nil {
 				return err
@@ -487,4 +498,3 @@ func (r gogenAnyTypeBuilder) handleStar(gat *GogenAnyType, gd *gogenData, starEx
 
 	return nil
 }
-

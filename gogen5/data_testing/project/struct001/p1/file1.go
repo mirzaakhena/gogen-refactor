@@ -28,3 +28,8 @@ type MyStruct1 struct {
 	Field9  func(string) int
 	Field10 map[string]int
 }
+
+func (r MyStruct1) MethodStruct1(x int) error {
+
+	return nil
+}
